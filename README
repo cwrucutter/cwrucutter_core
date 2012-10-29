@@ -5,8 +5,10 @@ CWRU Cutter's ROS packages
 
 To add to the ROS workspace:
 1. Make sure rosws is initialized:
-     rosws init <workspace directory> /opt/ros/fuerte
+       rosws info
+1a. If NOT initialized, set up the ROS workspace:
+       rosws init <workspace directory> /opt/ros/fuerte
 2. Add this git directory to the rosws:
-     rosws set cwrucutter-ros https://github.com/cwrucutter/cwrucutter-ros.git
+       rosws set cwrucutter-ros https://github.com/cwrucutter/cwrucutter-ros.git
 3. Update:
-     rosws update
+       rosws update
