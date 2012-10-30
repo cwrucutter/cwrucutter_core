@@ -1,0 +1,16 @@
+cutter_planner
+
+Plans the CWRU Cutter path
+
+Includes:
+  - Planner
+  - Mapping (??)
+  - Obstacle Avoidance (??)
+  - Slip reaction (??)
+
+Subscribes to:
+  - cwru/state (message: cutter_msgs/State)
+  - Obstacles
+
+Publishes:
+  - cwru/path (message: nav_msgs/Path)

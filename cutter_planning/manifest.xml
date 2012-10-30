@@ -1,0 +1,17 @@
+<package>
+  <description brief="cutter_planning">
+
+     cutter_planning performs planning procedures for CWRU Cutter robot. 
+     In the future, may include planning, mapping, reactions, obstacle 
+     avoidance, etc. Responsible for publishing the path topic. 
+
+  </description>
+  <author>cutty</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/cutter_planner</url>
+  <depend package="roscpp"/>
+
+</package>
+
+

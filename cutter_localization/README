@@ -1,0 +1,17 @@
+cutter_localization:
+
+Localization package for the CWRUCutter robot.
+
+Includes:
+  - odometry handling
+  - sensor measurement handling
+  - Processses/fuses sensor information to estimate state
+
+Subscribes to:
+  - cwru/enc_count (message: cutter_msgs/EncMsg)
+  - IMU 
+  - GPS (message: sensor_msgs/NavSatFix) 
+  - Beacons/Image Processing
+
+Publishes to:
+  - cwru/state (message: cutter_msgs/State) 

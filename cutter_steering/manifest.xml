@@ -1,0 +1,15 @@
+<package>
+  <description brief="cutter_steering">
+
+     cutter_steering steers the CWRU Cutter robot to follow a path
+
+  </description>
+  <author>cutty</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/cutter_steering</url>
+  <depend package="roscpp"/>
+
+</package>
+
+

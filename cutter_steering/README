@@ -1,0 +1,10 @@
+cutter_steering
+
+Performs steering and path following for the CWRU Cutter
+robot. Will profile velocity and converge on the path.
+
+Subscribes to:
+  - Path output from cutter_planner
+
+Publishes:
+  - cwru/cmd_vel (message: cutter_msgs/CmdVel)

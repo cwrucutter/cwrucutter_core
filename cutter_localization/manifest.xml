@@ -1,0 +1,15 @@
+<package>
+  <description brief="cutter_localization">
+
+     cutter_localization performs localization for the CWRU Cutter robot
+
+  </description>
+  <author>cutty</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/cutter_localization</url>
+  <depend package="roscpp"/>
+
+</package>
+
+
