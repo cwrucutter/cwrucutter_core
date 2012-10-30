@@ -1,0 +1,10 @@
+<!-- This file starts crio communication and the teleop node -->
+<launch>
+
+   <!-- Startup the crio -->
+   <include file="$(find cutter_bot_drivers)/start_crio.launch" />
+   
+   <!-- Startup the teleop node --> 
+   <include file="$(find cutter_teleop)/start_teleop.launch" />
+
+</launch>

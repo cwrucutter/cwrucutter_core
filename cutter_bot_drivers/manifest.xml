@@ -1,0 +1,14 @@
+<package>
+  <description brief="cutter_bot_drivers">
+
+     cutter_bot_drivers
+
+  </description>
+  <author>cutty</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/cutter_bot_drivers</url>
+
+</package>
+
+
