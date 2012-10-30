@@ -1,0 +1,21 @@
+<launch>
+
+    <!-- joy node -->
+    <node respawn="true" pkg="joy" type="joy" name="cwru_joy">
+        <param name="dev" type="string" value="/dev/input/js0" />
+        <param name="deadzone" value="0.12" />
+        <param name="autorepeat_rate" value="10" />
+    </node>
+
+    <!-- joy Throttler -->
+    <node respawn="true" pkg="topic_tools" type="throttle" name="joy_throttler"
+        args="messages /joy 12 /throttled_joy" />
+
+    <!-- Teleop Node -->
+    <param name="linear_axis" value="1" type="int" />
+    <param name="angular_axis" value="3" type="int" />
+    <param name="linear_scale" value="1000" type="double" />
+    <param name="angular_scale" value="1000" type="double" />
+    <node pkg="cutter_teleop" type="teleop_cutter_joy" name="teleop" />
+
+</launch>

@@ -1,0 +1,17 @@
+<package>
+  <description brief="cutter_teleop">
+
+     cutter_teleop provides teleop for the CWRU Cutter Mower
+
+  </description>
+  <author>EJ Kreinar, Charles Hart</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/cwru_teleop</url>
+  <depend package="cutter_msgs"/>
+  <depend package="roscpp"/>
+  <depend package="joy"/>
+
+</package>
+
+
