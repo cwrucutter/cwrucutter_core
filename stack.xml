@@ -1,0 +1,11 @@
+<stack>
+   <description brief="cwrucutter_core">
+     A set of packages for the main cwrucutter operation.
+     Localization, navigation, and obstacle detection included.
+   </description>
+   <author>Maintained by EJ Kreinar</author>
+   <license>BSD</license>
+   <url></url>
+   <review status="unreviewed" notes=""/>
+   <depend stack="ros"/>
+</stack>
