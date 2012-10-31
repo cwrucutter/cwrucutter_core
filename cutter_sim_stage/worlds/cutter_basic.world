@@ -1,0 +1,75 @@
+define block model
+(
+  size [0.5 0.5 2]
+  gui_nose 0
+  laser_return 1
+)
+
+define sick_lms291 ranger
+(
+  sensor(
+    range_max 80.0
+    fov 180.0
+    samples 181
+  )
+  #generic model stuff
+  size [.1 .1 .1]
+)
+
+define cutter position
+(
+  size [1 .6 .8]
+  origin [0.4 0 0 0]
+  gui_nose 1
+  drive "diff"
+  sick_lms291(pose [0.9 0.0 0 0.1])
+  #Next two lines make the stage simulation return the true global position
+  #TODO: Remove in the future when we have other sensors simulated...
+  #      But for now, we can use assume true localization in order to get 
+  #      path driving working.
+  #      Eventually, use localization "odom" and provide an odom noise model
+  localization "gps"   
+  localization_origin [0 0 0 0]
+)
+
+#define floorplan model
+#(
+#  color "gray30"
+#
+#  # most maps will need a bounding box
+#  boundary 1
+#
+#  gui_nose 0
+#  gui_grid 0
+#
+#  gui_outline 0
+#  gripper_return 0
+#  fiducial_return 0
+#  laser_return 1
+#)
+
+# set the resolution of the underlying raytrace model in meters
+resolution 0.02
+
+interval_sim 100  # simulation timestep in milliseconds
+
+
+window
+( 
+  size [ 745.000 448.000 ] 
+  show_grid 1
+  rotate [ 0.000 -1.560 ]
+  scale 28.806 
+)
+
+# load an environment bitmap
+#floorplan
+#( 
+#  name "cwrucutter_sim"
+#  size [54.0 58.7 0.1]
+#  pose [0.0 0.0 0.0 0.0 ]
+#)
+
+# throw in a robot
+cutter( pose [ 0 0 0 0 ] name "cutter" color "blue")
+block( pose [ 10 10 0 0 ] color "red")

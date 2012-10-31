@@ -1,0 +1,47 @@
+Background\ ColorB=0
+Background\ ColorG=0
+Background\ ColorR=0
+Camera\ Config=0.982794 1.5708 18.0278 0 -1.90735e-06 1.90735e-06
+Camera\ Type=rviz::OrbitViewController
+Fixed\ Frame=/map
+Grid.Alpha=0.5
+Grid.Cell\ Size=1
+Grid.ColorB=0.5
+Grid.ColorG=0.5
+Grid.ColorR=0.5
+Grid.Enabled=1
+Grid.Line\ Style=0
+Grid.Line\ Width=0.03
+Grid.Normal\ Cell\ Count=0
+Grid.OffsetX=0
+Grid.OffsetY=0
+Grid.OffsetZ=0
+Grid.Plane=0
+Grid.Plane\ Cell\ Count=20
+Grid.Reference\ Frame=<Fixed Frame>
+Odometry.Angle\ Tolerance=0.1
+Odometry.ColorB=0
+Odometry.ColorG=0.1
+Odometry.ColorR=1
+Odometry.Enabled=1
+Odometry.Keep=100
+Odometry.Length=1
+Odometry.Position\ Tolerance=0.1
+Odometry.Topic=/odom
+Property\ Grid\ Splitter=700,75
+Property\ Grid\ State=expanded=.Global Options;splitterratio=0.5
+QMainWindow=000000ff00000000fd00000003000000000000011d00000359fc0200000001fb000000100044006900730070006c006100790073010000003800000359000000e800ffffff000000010000013100000359fc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000038000000dc0000006400fffffffb0000000a00560069006500770073010000011a00000195000000b800fffffffb0000001200530065006c0065006300740069006f006e01000002b5000000dc0000006400ffffff000000030000069000000040fc0100000001fb0000000800540069006d0065010000000000000690000002c700ffffff000004360000035900000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+Target\ Frame=<Fixed Frame>
+Tool\ 2D\ Nav\ GoalTopic=/move_base_simple/goal
+Tool\ 2D\ Pose\ EstimateTopic=initialpose
+[Display0]
+ClassName=rviz::GridDisplay
+Name=Grid
+[Display1]
+ClassName=rviz::OdometryDisplay
+Name=Odometry
+[Window]
+Height=1010
+Width=1680
+X=0
+Y=0

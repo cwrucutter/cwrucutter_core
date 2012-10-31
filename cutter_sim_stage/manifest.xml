@@ -8,6 +8,10 @@
   <license>BSD</license>
   <review status="unreviewed" notes=""/>
   <url>http://ros.org/wiki/cutter_sim_stage</url>
+  <depend package="rospy"/>
+  <depend package="roscpp"/>
+  <depend package="tf"/>
+  <depend package="cutter_msgs"/>
 
 </package>
 

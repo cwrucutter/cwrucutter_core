@@ -1,0 +1,13 @@
+<launch>
+    <!-- Use the simulation time -->
+    <param name="/use_sim_time" value="true" />
+    
+    <!-- Translate /cwru/cmd_vel to /cmd_vel -->
+    <node pkg="cutter_sim_stage" type="cmd_vel_translate.py" name="cmdtranslate" args="_topic_in:=/cwru/cmd_vel _topic_out:=/cmd_vel" />   
+
+    <!-- Start the Stage simulator -->
+    <node pkg="stage" type="stageros" name="stageros" args="$(find cutter_sim_stage)/worlds/cutter_basic.world" respawn="false" />
+
+    <!-- Publish a static transform from /map to /odom (this will change later) -->
+    <node pkg="tf" type="static_transform_publisher" name="localization" args="0 0 0 0 0 0 map odom 100"/>
+</launch>
