@@ -10,6 +10,8 @@
   <url>http://ros.org/wiki/cutter_bot_drivers</url>
   <depend package="rosserial_python"/>
   <depend package="novatel_gps_driver"/>
+  <depend package="rospy"/>
+  <depend package="cutter_msgs"/>
 </package>
 
 

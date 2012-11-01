@@ -8,7 +8,7 @@
   <license>BSD</license>
   <review status="unreviewed" notes=""/>
   <url>http://ros.org/wiki/cwru_teleop</url>
-  <depend package="cutter_msgs"/>
+  <depend package="geometry_msgs"/>
   <depend package="roscpp"/>
   <depend package="joy"/>
 

@@ -2,7 +2,7 @@
 <launch>
 
    <!-- Startup the crio -->
-   <include file="$(find cutter_bot_drivers)/start_crio.launch" />
+   <include file="$(find cutter_bot_drivers)/start_robot.launch" />
    
    <!-- Startup the teleop node --> 
    <include file="$(find cutter_teleop)/start_teleop.launch" />

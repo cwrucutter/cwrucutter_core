@@ -33,26 +33,27 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import roslib
-roslib.load_manifest('cutter_sim_stage')
+roslib.load_manifest('cutter_bot_drivers')
 import rospy
 from cutter_msgs.msg import VelCmd
 from geometry_msgs.msg import Twist
        
 def callback(data,pub):
-    cmd_vel = Twist()
-    cmd_vel.linear.x  = data.linear/1000.0
-    cmd_vel.angular.z = data.angular/1000.0
+    #rospy.loginfo('callback called')
+    cmd_vel = VelCmd()
+    cmd_vel.linear  = data.linear.x*1000.0
+    cmd_vel.angular = data.angular.z*1000.0
     pub.publish(cmd_vel)
 
 def translator():
     rospy.init_node('cmd_vel_translator')
-    topic_out = rospy.get_param('~topic_out','cmd_vel')
-    topic_in  = rospy.get_param('~topic_in','/cwru/cmd_vel')
+    topic_out = rospy.get_param('~topic_out','/cwru/cmd_vel')
+    topic_in  = rospy.get_param('~topic_in','/cmd_vel')
     rospy.loginfo('Publishing to: '+topic_out)
     rospy.loginfo('Subscribing to: '+topic_in)
 
-    pub = rospy.Publisher(topic_out,Twist)
-    rospy.Subscriber(topic_in,VelCmd, callback, pub)
+    pub = rospy.Publisher(topic_out,VelCmd)
+    rospy.Subscriber(topic_in, Twist, callback, pub)
     rospy.spin()
 
 if __name__ == "__main__":

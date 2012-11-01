@@ -14,8 +14,8 @@
     <!-- Teleop Node -->
     <param name="linear_axis" value="1" type="int" />
     <param name="angular_axis" value="3" type="int" />
-    <param name="linear_scale" value="1000" type="double" />
-    <param name="angular_scale" value="1000" type="double" />
+    <param name="linear_scale" value="1" type="double" />
+    <param name="angular_scale" value="1" type="double" />
     <node pkg="cutter_teleop" type="teleop_cutter_joy" name="teleop" />
 
 </launch>
