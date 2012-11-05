@@ -1,0 +1,10 @@
+<launch>
+    <!-- Use the simulation time -->
+    <param name="/use_sim_time" value="true" />
+
+    <!-- Start the Stage simulator -->
+    <node pkg="stage" type="stageros" name="stageros" args="-g $(find cutter_sim_stage)/worlds/cutter_basic.world" respawn="false" />
+
+    <!-- Publish a static transform from /map to /odom (this will change later) -->
+    <node pkg="tf" type="static_transform_publisher" name="localization" args="0 0 0 0 0 0 map odom 100"/>
+</launch>
