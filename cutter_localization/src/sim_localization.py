@@ -40,12 +40,20 @@ from nav_msgs.msg import Odometry
 from tf.transformations import euler_from_quaternion
        
 def callback(data,pub):
-    #rospy.loginfo('callback called')
+    # rospy.loginfo('callback called')
     pose_msg = Pose()
+
+    # Populate x,y,theta
     pose_msg.x = data.pose.pose.position.x
     pose_msg.y = data.pose.pose.position.y
     (r, p, y)  = euler_from_quaternion([data.pose.pose.orientation.x, data.pose.pose.orientation.y, data.pose.pose.orientation.z, data.pose.pose.orientation.w])
     pose_msg.theta = y
+
+    # Populate velocities    
+    pose_msg.vel   = data.twist.twist.linear.x
+    pose_msg.omega = data.twist.twist.angular.z
+
+    # Publish
     pub.publish(pose_msg)
 
 def sim_localize():
