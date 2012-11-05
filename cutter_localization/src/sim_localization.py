@@ -59,7 +59,7 @@ def callback(data,pub):
 def sim_localize():
     rospy.init_node('sim_localize')
 
-    pub = rospy.Publisher("pose",Pose)
+    pub = rospy.Publisher("cwru/pose",Pose)
     rospy.Subscriber("odom", Odometry, callback, pub)
     rospy.spin()
 
