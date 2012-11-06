@@ -14,4 +14,4 @@ Subscribes to:
   - Beacons/Image Processing
 
 Publishes to:
-  - cwru/state (message: cutter_msgs/State) 
+  - cwru/pose (message: cutter_msgs/Pose) 

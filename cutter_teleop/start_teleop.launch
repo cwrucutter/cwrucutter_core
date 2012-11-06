@@ -12,10 +12,11 @@
         args="messages /joy 12 /throttled_joy" />
 
     <!-- Teleop Node -->
-    <param name="linear_axis" value="1" type="int" />
-    <param name="angular_axis" value="3" type="int" />
-    <param name="linear_scale" value="1" type="double" />
-    <param name="angular_scale" value="1" type="double" />
-    <node pkg="cutter_teleop" type="teleop_cutter_joy" name="teleop" />
+    <node pkg="cutter_teleop" type="teleop_cutter_joy" name="teleop">
+        <param name="linear_axis" value="1" type="int" />
+        <param name="angular_axis" value="3" type="int" />
+        <param name="linear_scale" value="1" type="double" />
+        <param name="angular_scale" value="1" type="double" />
+    </node>
 
 </launch>

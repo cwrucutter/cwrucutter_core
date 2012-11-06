@@ -3,6 +3,14 @@ cwrucutter_ros
 
 CWRU Cutter's ROS packages
 
+To Run:
+- Either 1a or 1b -
+1a. Running the robot: roslaunch cutter_bot_drivers start_robot.launch
+1b. Running stage sim: roslaunch cutter_sim_stage cutter_sim_basic.launch
+- Either 2a or 2b -
+2a. Running teleop: roslaunch cutter_teleop start_teleop.launch
+2b. Running navigation: roslaunch ..... (not done yet) 
+
 To add to the ROS workspace:
 1. Make sure rosws is initialized:
        rosws info

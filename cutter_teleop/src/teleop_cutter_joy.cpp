@@ -28,10 +28,11 @@ private:
 TeleopCutter::TeleopCutter():
   linear_axis_(1), angular_axis_(3), linear_scale_(1), angular_scale_(1)
 {
-  nh_.param("linear_axis",  linear_axis_, linear_axis_);
-  nh_.param("angular_axis", angular_axis_, angular_axis_);
-  nh_.param("linear_scale", linear_scale_, linear_scale_);
-  nh_.param("angular_scale", angular_scale_, angular_scale_);
+  ros::NodeHandle nhPrivate("~");
+  nhPrivate.param("linear_axis",  linear_axis_, linear_axis_);
+  nhPrivate.param("angular_axis", angular_axis_, angular_axis_);
+  nhPrivate.param("linear_scale", linear_scale_, linear_scale_);
+  nhPrivate.param("angular_scale", angular_scale_, angular_scale_);
 
   cmd_pub_ = nh_.advertise<geometry_msgs::Twist>("cmd_vel", 1);
 
