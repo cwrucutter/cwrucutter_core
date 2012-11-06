@@ -46,6 +46,7 @@
 #include <cutter_msgs/EncMsg.h>
 #include <nav_msgs/Odometry.h>
 #include <ros/console.h>
+#include <math.h>
 
 class CutterOdometry
 {
@@ -62,6 +63,10 @@ class CutterOdometry
     ros::Publisher  odom_pub_;
     ros::Subscriber enc_sub_;
     
+    double x_;
+    double y_;
+    double tht_;
+  
     int enc_left_;
     int enc_right_;
 
@@ -78,7 +83,7 @@ CutterOdometry::CutterOdometry():
   enc_right_ = 0;
 
   odom_pub_ = node_.advertise<nav_msgs::Odometry>("odom",1);
-  enc_sub_  = node_.subscribe<cutter_msgs::EncMsg>("cwru/enc_count",1,&CutterOdometry::encCountCallback,this);
+  enc_sub_  = node_.subscribe<cutter_msgs::EncMsg>("cwru/enc_count",100,&CutterOdometry::encCountCallback,this);
 }
 
 bool CutterOdometry::sendOdometry()
@@ -97,10 +102,47 @@ bool CutterOdometry::lookupParams()
 
 void CutterOdometry::encCountCallback(const cutter_msgs::EncMsg::ConstPtr& enc)
 {
-  ROS_INFO("Received enc message");
+  double start = ros::Time::now().toSec();
 
+  if (!lookupParams())
+  {
+    ROS_WARN("Encoder parameters do not exist. Cannot parse encoders");
+    return;
+  }
+
+  enc_right_ = enc->right; 
   enc_left_  = enc->left;
-  enc_right_ = enc->right;
+  double dT  = 50.0;
+  double Dr, Dl, Vr, Vl;
+  Dr = enc_right_ / ticks_per_m_right_;
+  Dl = enc_left_  / ticks_per_m_left_;
+  Vr = Dr / dT;
+  Vl = Dl / dT; 
+
+  double diff = Vr - Vl;
+  double sum  = Vr + Vl;
+  double xnew, ynew, thtn;
+  if (diff < .000001)
+  {
+    xnew = x_ + sum/2 * cos(tht_)*dT;
+    ynew = y_ + sum/2 * sin(tht_)*dT;
+    thtn = tht_;
+  }
+  else
+  {
+
+    xnew = x_ + track_ * sum/(2*diff) * (sin(diff*dT/track_+tht_) - sin(tht_));
+    ynew = y_ - track_ * sum/(2*diff) * (cos(diff*dT/track_+tht_) - cos(tht_));
+    thtn = tht_ + diff/track_*dT;
+  }
+  
+  double end = ros::Time::now().toSec();
+    
+  ROS_INFO("Encoders: R: %f L: %f x_: %f y_: %f tht_: %f",Dr,Dl,x_,y_,tht_);
+  ROS_INFO("          xnew: %f ynew: %f thtn: %f duration: %f",xnew,ynew,thtn,end-start);
+  x_ = xnew;
+  y_ = ynew;
+  tht_ = thtn;
 }
 
 int main(int argc, char** argv)
@@ -108,7 +150,9 @@ int main(int argc, char** argv)
   ros::init(argc, argv, "odometry");
   CutterOdometry odometry;
   
-  ros::Rate loop_rate(10.0);
+  ros::spin();
+
+  /*ros::Rate loop_rate(10.0);
   while (ros::ok())
   {
     if (odometry.lookupParams())
@@ -121,6 +165,7 @@ int main(int argc, char** argv)
       ROS_WARN("Parameters not found");
     }
     loop_rate.sleep();
-  }
+  }*/
 
+  return 0;
 }
