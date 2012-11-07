@@ -1,0 +1,10 @@
+<launch>
+  <!-- Start the Sick LMS Lidar -->
+  <node pkg="sicktoolbox_wrapper" type="sicklms">
+    <param name="port" value="/dev/ttyUSB1" type="string" />
+    <param name="baud" value="38400" type="int" />
+  </node>
+
+  <!-- Publish the static transform from base_link to laser -->
+  <node pkg="tf" type="static_transform_publisher" name="laser_tf_publisher" args=".9 0 .1 0 0 0 base_link laser 100" />
+</launch>
