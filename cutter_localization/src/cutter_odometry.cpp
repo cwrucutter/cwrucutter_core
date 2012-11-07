@@ -47,6 +47,9 @@
 #include <nav_msgs/Odometry.h>
 #include <ros/console.h>
 #include <math.h>
+#include "angles/angles.h"
+#include <tf/tf.h>
+#include <tf/transform_broadcaster.h>
 
 class CutterOdometry
 {
@@ -62,34 +65,116 @@ class CutterOdometry
     
     ros::Publisher  odom_pub_;
     ros::Subscriber enc_sub_;
+    tf::TransformBroadcaster odom_broadcaster_;
     
     double x_;
     double y_;
     double tht_;
-  
+    
     int enc_left_;
     int enc_right_;
+    int enc_left_old_;
+    int enc_right_old_;
 
     double track_;
     int ticks_per_m_left_;
     int ticks_per_m_right_;
 
+    bool first_call_;
 };
 
 CutterOdometry::CutterOdometry():
   track_(0.67), ticks_per_m_left_(20000), ticks_per_m_right_(20000)
 {
+  first_call_ = 1;
+
   enc_left_  = 0;
   enc_right_ = 0;
+  enc_left_old_  = 0;
+  enc_right_old_ = 0;
+  x_   = 0;
+  y_   = 0;
+  tht_ = 0;
 
   odom_pub_ = node_.advertise<nav_msgs::Odometry>("odom",1);
-  enc_sub_  = node_.subscribe<cutter_msgs::EncMsg>("cwru/enc_count",100,&CutterOdometry::encCountCallback,this);
+  enc_sub_  = node_.subscribe<cutter_msgs::EncMsg>("cwru/enc_count",1,&CutterOdometry::encCountCallback,this);
 }
 
 bool CutterOdometry::sendOdometry()
 {
-  ROS_INFO("Sending Odometry: %i, %i, %f, %i, %i",enc_left_,enc_right_,track_,ticks_per_m_right_,ticks_per_m_left_);
-  //TODO Parse and send odometry here
+  //ROS_INFO("Sending Odometry: %i, %i, %f, %i, %i",enc_left_,enc_right_,track_,ticks_per_m_right_,ticks_per_m_left_);
+  
+  double start = ros::Time::now().toSec();
+
+  double dT  = 50.0;
+  double Dr, Dl, Vr, Vl;
+  Dr = double(enc_right_ - enc_right_old_) / ticks_per_m_right_;
+  Dl = double(enc_left_  - enc_left_old_ ) / ticks_per_m_left_;
+  Vr = Dr / dT;
+  Vl = Dl / dT;
+
+  double diff = Vr - Vl;
+  double sum  = Vr + Vl;
+  double xnew, ynew, thtn;
+  xnew = x_; ynew = y_; thtn = tht_;
+  if (diff == 0 && sum == 0)
+  {
+    //Keep the same x,y,theta
+  }
+  else if (diff < .0000001 && diff > -.0000001)
+  {
+    // New x,y. Theta stays the same
+    xnew = x_ + sum/2 * cos(tht_)*dT;
+    ynew = y_ + sum/2 * sin(tht_)*dT;
+  }
+  else
+  {
+    // New x,y,theta
+    xnew = x_ + track_ * sum/(2*diff) * (sin(diff*dT/track_+tht_) - sin(tht_));
+    ynew = y_ - track_ * sum/(2*diff) * (cos(diff*dT/track_+tht_) - cos(tht_));
+    thtn = angles::normalize_angle(tht_ + diff/track_*dT);
+  }  
+
+  double end = ros::Time::now().toSec();
+  ROS_INFO("Encoders: Dr: %f Dl: %f x_: %f y_: %f tht_: %f",Dr,Dl,x_,y_,tht_);
+  ROS_INFO("          xnew: %f ynew: %f thtn: %f duration: %f",xnew,ynew,thtn,end-start);
+  
+  // Store Values
+  x_   = xnew;
+  y_   = ynew;
+  tht_ = thtn;
+  enc_right_old_ = enc_right_;
+  enc_left_old_  = enc_left_;
+
+  // Create a quaternion to store yaw
+  geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(tht_);
+  ros::Time current_time = ros::Time::now();
+
+  // Broadcast the odom->base_link transform
+  geometry_msgs::TransformStamped odom_trans;
+  odom_trans.header.stamp = current_time;
+  odom_trans.header.frame_id = "odom";
+  odom_trans.child_frame_id = "base_link";
+
+  odom_trans.transform.translation.x = x_;
+  odom_trans.transform.translation.y = y_;
+  odom_trans.transform.translation.z = 0.0;
+  odom_trans.transform.rotation = odom_quat;
+  odom_broadcaster_.sendTransform(odom_trans);
+  
+  // Publish the Odometry Message
+  nav_msgs::Odometry odom;
+  odom.header.stamp = current_time;
+  odom.header.frame_id = "odom"; 
+  odom.child_frame_id = "base_link";
+
+  odom.pose.pose.position.x  = x_;
+  odom.pose.pose.position.y  = y_;
+  odom.pose.pose.orientation = odom_quat;
+  odom.twist.twist.linear.x  = sum/2;
+  odom.twist.twist.angular.z = diff/track_;
+  odom_pub_.publish(odom);
+
   return true;
 }
 
@@ -102,47 +187,16 @@ bool CutterOdometry::lookupParams()
 
 void CutterOdometry::encCountCallback(const cutter_msgs::EncMsg::ConstPtr& enc)
 {
-  double start = ros::Time::now().toSec();
-
-  if (!lookupParams())
-  {
-    ROS_WARN("Encoder parameters do not exist. Cannot parse encoders");
-    return;
-  }
-
-  enc_right_ = enc->right; 
   enc_left_  = enc->left;
-  double dT  = 50.0;
-  double Dr, Dl, Vr, Vl;
-  Dr = enc_right_ / ticks_per_m_right_;
-  Dl = enc_left_  / ticks_per_m_left_;
-  Vr = Dr / dT;
-  Vl = Dl / dT; 
-
-  double diff = Vr - Vl;
-  double sum  = Vr + Vl;
-  double xnew, ynew, thtn;
-  if (diff < .000001)
+  enc_right_ = enc->right;
+  if (first_call_)
   {
-    xnew = x_ + sum/2 * cos(tht_)*dT;
-    ynew = y_ + sum/2 * sin(tht_)*dT;
-    thtn = tht_;
+    enc_right_old_ = enc_right_;
+    enc_left_old_  = enc_left_;
+    first_call_ = 0;
   }
-  else
-  {
-
-    xnew = x_ + track_ * sum/(2*diff) * (sin(diff*dT/track_+tht_) - sin(tht_));
-    ynew = y_ - track_ * sum/(2*diff) * (cos(diff*dT/track_+tht_) - cos(tht_));
-    thtn = tht_ + diff/track_*dT;
-  }
-  
-  double end = ros::Time::now().toSec();
-    
-  ROS_INFO("Encoders: R: %f L: %f x_: %f y_: %f tht_: %f",Dr,Dl,x_,y_,tht_);
-  ROS_INFO("          xnew: %f ynew: %f thtn: %f duration: %f",xnew,ynew,thtn,end-start);
-  x_ = xnew;
-  y_ = ynew;
-  tht_ = thtn;
+  ROS_INFO("Received encoder values. Right: %i, Left: %i", enc_right_, enc_left_);
+  return;
 }
 
 int main(int argc, char** argv)
@@ -150,9 +204,9 @@ int main(int argc, char** argv)
   ros::init(argc, argv, "odometry");
   CutterOdometry odometry;
   
-  ros::spin();
+  //ros::spin();
 
-  /*ros::Rate loop_rate(10.0);
+  ros::Rate loop_rate(10.0);
   while (ros::ok())
   {
     if (odometry.lookupParams())
@@ -165,7 +219,7 @@ int main(int argc, char** argv)
       ROS_WARN("Parameters not found");
     }
     loop_rate.sleep();
-  }*/
+  }
 
   return 0;
 }

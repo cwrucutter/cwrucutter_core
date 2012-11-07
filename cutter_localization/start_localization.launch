@@ -1,0 +1,9 @@
+<launch>
+  <!-- Start the odometry -->
+  <include file="$(find cutter_localization)/odometry_encoders.launch" />
+
+  <!-- Start localization -->
+  <!-- TODO: Replace the static transform publisher with the actual localization node -->
+  <node pkg="tf" type="static_transform_publisher" name="localization" args="0 0 0 0 0 0 map odom 100" />
+
+</launch>

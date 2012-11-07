@@ -1,8 +1,8 @@
 <launch>
   <node pkg="cutter_localization" type="odometry" name="odometry" output="screen">
-    <param name="track" type="double" value=".667"/>
-    <param name="tpm_left"  type="int" value="20800"/>
-    <param name="tpm_right" type="int" value="20800"/>
+    <param name="track" type="double" value=".59"/>
+    <param name="tpm_left"  type="int" value="24500"/>
+    <param name="tpm_right" type="int" value="24500"/>
   </node>
 
 </launch>
