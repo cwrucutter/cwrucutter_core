@@ -68,8 +68,8 @@ floorplan
 ( 
   name "fence2"
   bitmap "fence2.png"
-  size [7 15 1]
-  pose [0.0 0.0 0.0 0.5 ]
+  size [4 15 1]
+  pose [0.0 -0.5 0.0 0.5 ]
 )
 
 define snowfield model
@@ -93,8 +93,8 @@ snowfield
 ( 
   name "snow2"
   #bitmap "fence2.png"
-  size [2 10 0.2]
-  pose [0.0 -0.5 0.0 0.0 ]
+  size [1 10 0.2]
+  pose [0.0 0.0 0.0 0.0 ]
 )
 
 define chalkline model
@@ -117,14 +117,15 @@ chalkline
 ( 
   name "garage2"
   bitmap "garage2.png"
-  size [4 3 0.1]
-  pose [1.5 6.0 0.0 0.0 ]
+  size [4 6 0.1]
+  pose [0.0 -8.0 0.0 0.0 ]
 )
 
 # throw in a robot
-cutter( pose [ 1 6 0 0 ] name "cutter" color "blue")
-block( pose [ 1.5 9 0 0 ] color "black")
-block( pose [ -4.9 -3.5 0 0 ] color "white")
-block( pose [ 5.3 3.3 0 0 ] color "orange")
-block( pose [ -2.4 -8.5 0 0 ] color "pink")
-block( pose [ 4.95 2.5 0 0 ] color "green")
+cutter( pose [ 0 -6.5 0 0 ] name "cutter" color "blue")
+block( pose [ 0 -9.5 0 0 ] color "red")
+block( pose [ 3.29 -2.25 0 0 ] color "black")
+block( pose [ 4.94 2.27 0 0 ] color "white")
+block( pose [ 1.16 7.6 0 0 ] color "purple")
+block( pose [ 0.93 8.7 0 0 ] color "pink")
+block( pose [ -2.87 6.60 0 0 ] color "blue")
