@@ -8,3 +8,4 @@ lib/
 *.pyo
 *.pyc
 *~
+*.bag
