@@ -90,13 +90,21 @@ void CutterSteering::steerToPoint(
                                   //waMax
                                   )
 {
+
+  geometry_msgs::Twist steeringMsg;
+
   //check distance to WayPt.
   double targetDistance = euclidianDistance(map_pose.pose.position, last_waypoint.pose.position);
+  double xDistance = map_pose.pose.position.x - target_waypoint.pose.position.x;
+  double yDistance = map_pose.pose.position.y - target_waypoint.pose.position.y;
+
+  double targetTheta = math.atan2(xDistance, yDistance);
+  double robotTheta = tf::getYaw(map_pose.pose.orientation);
+  
 
   //Are we there (x,y)?
   if (targetDistance < target_waypoint.distanceTol)
   {
-
     //find desired heading given Pose and NextWayPt
     //Are we at the desired heading?
     //if not, issue only w command (pivot)
@@ -117,9 +125,11 @@ void CutterSteering::steerToPoint(
   //*-1
 
   //set v, w. 
+  steeringMsg.linear.x = 0;
+  steeringMsg.angular.z = 0;
 
   //publish command velocity
-
+  cmd_vel_pub_.publish(steeringMsg);
 }
 
 
