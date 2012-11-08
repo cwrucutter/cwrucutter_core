@@ -1,9 +1,8 @@
 <launch>
   <!-- Launch the Novatel GPS Driver node --> 
   <node pkg="novatel_gps_driver" type="novatel_gps_driver.py" name="driver_novatel">
-    <param name="port" value="dev/ttyUSB2" type="string"/>
+    <param name="port" value="$(arg port)" type="string"/>
     <param name="baud" value="57600" type="int"/>
-    <param name="frame_id" value="gps" type="string"/>
   </node>
 
   <!-- Publish the static transform from base_link to gps -->
