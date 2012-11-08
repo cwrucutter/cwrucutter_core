@@ -1,4 +1,8 @@
+//teleop_cutter_joy
+//
 //based on http://www.ros.org/wiki/joy/Tutorials/WritingTeleopNode
+//
+
 
 #include <ros/ros.h>
 #include <sensor_msgs/Joy.h>
@@ -24,9 +28,9 @@ private:
   ros::Subscriber joy_sub_;
 };
 
-
+//
 TeleopCutter::TeleopCutter():
-  linear_axis_(1), angular_axis_(3), linear_scale_(1), angular_scale_(1)
+  linear_axis_(1), angular_axis_(3), linear_scale_(1), angular_scale_(1)//Joystick axes and maximum values for scaling
 {
   ros::NodeHandle nhPrivate("~");
   nhPrivate.param("linear_axis",  linear_axis_, linear_axis_);
@@ -36,7 +40,7 @@ TeleopCutter::TeleopCutter():
 
   cmd_pub_ = nh_.advertise<geometry_msgs::Twist>("cmd_vel", 1);
 
-  joy_sub_ = nh_.subscribe<sensor_msgs::Joy>("throttled_joy", 10, &TeleopCutter::joyCallback, this);
+  joy_sub_ = nh_.subscribe<sensor_msgs::Joy>("throttled_joy", 10, &TeleopCutter::joyCallback, this); //10 Hz
 }
 
 void TeleopCutter::joyCallback(const sensor_msgs::Joy::ConstPtr& joy)

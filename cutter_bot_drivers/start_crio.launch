@@ -4,6 +4,6 @@
    <node pkg="cutter_bot_drivers" type="cmd_vel_translate.py" name="translate_cmd_vel" args="_topic_in:=/cmd_vel _topic_out:=/cwru/cmd_vel"/>
    
    <!-- Serial Node to CRIO -->
-   <node pkg="rosserial_python" type="serial_node.py" name="SIRL" args="/dev/ttyUSB0"/>
-
+   <node pkg="rosserial_python" type="serial_node.py" name="SIRL" args="(arg port)"/>
+   
 </launch>
