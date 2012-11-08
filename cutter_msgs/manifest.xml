@@ -8,7 +8,7 @@
   <license>BSD</license>
   <review status="unreviewed" notes=""/>
   <url>http://ros.org/wiki/cutter_msgs</url>
-
+  <depend package="geometry_msgs" />
 </package>
 
 
