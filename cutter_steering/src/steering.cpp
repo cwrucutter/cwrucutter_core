@@ -61,10 +61,17 @@ CutterSteering::CutterSteering():
   //call steering algorithm?
 }
 
+
 bool CutterOdometry::lookupParams()
 {
   return true;
       //&& ros::param::get("~tpm_right",ticks_per_m_right_);
+}
+
+double euclideanDistance(geometry_msgs::Point p, geometry_msgs::Point q)
+{
+  //3d euclidean distance
+  return math.sqrt(pow(p.x - q.x, 2) + pow(p.y - q.y, 2) + pow(p.z - q.z, 2));
 }
 
 
@@ -89,6 +96,7 @@ void CutterSteering::steerToPoint(
   //Are we there (x,y)?
   if (targetDistance < target_waypoint.distanceTol)
   {
+
     //find desired heading given Pose and NextWayPt
     //Are we at the desired heading?
     //if not, issue only w command (pivot)
@@ -101,6 +109,7 @@ void CutterSteering::steerToPoint(
     //find difference in Pose-heading and desired-heading
     //find curvature. w = k*v?
   }
+
   //if line to left
   //control on w
 
