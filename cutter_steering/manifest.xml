@@ -9,6 +9,8 @@
   <review status="unreviewed" notes=""/>
   <url>http://ros.org/wiki/cutter_steering</url>
   <depend package="roscpp"/>
+  <depend package="tf"/>
+  <depend package="cutter_msgs"/>
 
 </package>
 
