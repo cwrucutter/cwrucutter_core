@@ -4,55 +4,43 @@ python3 = True if sys.hexversion > 0x03000000 else False
 import genpy
 import struct
 
-import cutter_msgs.msg
-import std_msgs.msg
+import geometry_msgs.msg
 
 class WayPoint(genpy.Message):
-  _md5sum = "43f2525bf54af1d4fa3e9053f0f932b9"
+  _md5sum = "b0e4c31d2d93af6522b0176e483e8d9a"
   _type = "cutter_msgs/WayPoint"
-  _has_header = True #flag to mark the presence of a Header object
-  _full_text = """Header header
-Pose pose
+  _has_header = False #flag to mark the presence of a Header object
+  _full_text = """geometry_msgs/Pose pose
 float32 thetaFinal
 float32 distanceTol
 float32 thetaTol
 bool direction
 
 ================================================================================
-MSG: std_msgs/Header
-# Standard metadata for higher-level stamped data types.
-# This is generally used to communicate timestamped data 
-# in a particular coordinate frame.
-# 
-# sequence ID: consecutively increasing ID 
-uint32 seq
-#Two-integer timestamp that is expressed as:
-# * stamp.secs: seconds (stamp_secs) since epoch
-# * stamp.nsecs: nanoseconds since stamp_secs
-# time-handling sugar is provided by the client library
-time stamp
-#Frame this data is associated with
-# 0: no frame
-# 1: global frame
-string frame_id
+MSG: geometry_msgs/Pose
+# A representation of pose in free space, composed of postion and orientation. 
+Point position
+Quaternion orientation
 
 ================================================================================
-MSG: cutter_msgs/Pose
-Header header
-float32 x
-float32 y
-float32 theta
-float32 vel
-float32 omega
-float32 x_var
-float32 y_var
-float32 theta_var
-float32 vel_var
-float32 omega_var
+MSG: geometry_msgs/Point
+# This contains the position of a point in free space
+float64 x
+float64 y
+float64 z
+
+================================================================================
+MSG: geometry_msgs/Quaternion
+# This represents an orientation in free space in quaternion form.
+
+float64 x
+float64 y
+float64 z
+float64 w
 
 """
-  __slots__ = ['header','pose','thetaFinal','distanceTol','thetaTol','direction']
-  _slot_types = ['std_msgs/Header','cutter_msgs/Pose','float32','float32','float32','bool']
+  __slots__ = ['pose','thetaFinal','distanceTol','thetaTol','direction']
+  _slot_types = ['geometry_msgs/Pose','float32','float32','float32','bool']
 
   def __init__(self, *args, **kwds):
     """
@@ -62,7 +50,7 @@ float32 omega_var
     changes.  You cannot mix in-order arguments and keyword arguments.
 
     The available fields are:
-       header,pose,thetaFinal,distanceTol,thetaTol,direction
+       pose,thetaFinal,distanceTol,thetaTol,direction
 
     :param args: complete set of field values, in .msg order
     :param kwds: use keyword arguments corresponding to message field names
@@ -71,10 +59,8 @@ float32 omega_var
     if args or kwds:
       super(WayPoint, self).__init__(*args, **kwds)
       #message fields cannot be None, assign default values for those that are
-      if self.header is None:
-        self.header = std_msgs.msg.Header()
       if self.pose is None:
-        self.pose = cutter_msgs.msg.Pose()
+        self.pose = geometry_msgs.msg.Pose()
       if self.thetaFinal is None:
         self.thetaFinal = 0.
       if self.distanceTol is None:
@@ -84,8 +70,7 @@ float32 omega_var
       if self.direction is None:
         self.direction = False
     else:
-      self.header = std_msgs.msg.Header()
-      self.pose = cutter_msgs.msg.Pose()
+      self.pose = geometry_msgs.msg.Pose()
       self.thetaFinal = 0.
       self.distanceTol = 0.
       self.thetaTol = 0.
@@ -104,23 +89,7 @@ float32 omega_var
     """
     try:
       _x = self
-      buff.write(_struct_3I.pack(_x.header.seq, _x.header.stamp.secs, _x.header.stamp.nsecs))
-      _x = self.header.frame_id
-      length = len(_x)
-      if python3 or type(_x) == unicode:
-        _x = _x.encode('utf-8')
-        length = len(_x)
-      buff.write(struct.pack('<I%ss'%length, length, _x))
-      _x = self
-      buff.write(_struct_3I.pack(_x.pose.header.seq, _x.pose.header.stamp.secs, _x.pose.header.stamp.nsecs))
-      _x = self.pose.header.frame_id
-      length = len(_x)
-      if python3 or type(_x) == unicode:
-        _x = _x.encode('utf-8')
-        length = len(_x)
-      buff.write(struct.pack('<I%ss'%length, length, _x))
-      _x = self
-      buff.write(_struct_13fB.pack(_x.pose.x, _x.pose.y, _x.pose.theta, _x.pose.vel, _x.pose.omega, _x.pose.x_var, _x.pose.y_var, _x.pose.theta_var, _x.pose.vel_var, _x.pose.omega_var, _x.thetaFinal, _x.distanceTol, _x.thetaTol, _x.direction))
+      buff.write(_struct_7d3fB.pack(_x.pose.position.x, _x.pose.position.y, _x.pose.position.z, _x.pose.orientation.x, _x.pose.orientation.y, _x.pose.orientation.z, _x.pose.orientation.w, _x.thetaFinal, _x.distanceTol, _x.thetaTol, _x.direction))
     except struct.error as se: self._check_types(se)
     except TypeError as te: self._check_types(te)
 
@@ -130,41 +99,13 @@ float32 omega_var
     :param str: byte array of serialized message, ``str``
     """
     try:
-      if self.header is None:
-        self.header = std_msgs.msg.Header()
       if self.pose is None:
-        self.pose = cutter_msgs.msg.Pose()
+        self.pose = geometry_msgs.msg.Pose()
       end = 0
       _x = self
       start = end
-      end += 12
-      (_x.header.seq, _x.header.stamp.secs, _x.header.stamp.nsecs,) = _struct_3I.unpack(str[start:end])
-      start = end
-      end += 4
-      (length,) = _struct_I.unpack(str[start:end])
-      start = end
-      end += length
-      if python3:
-        self.header.frame_id = str[start:end].decode('utf-8')
-      else:
-        self.header.frame_id = str[start:end]
-      _x = self
-      start = end
-      end += 12
-      (_x.pose.header.seq, _x.pose.header.stamp.secs, _x.pose.header.stamp.nsecs,) = _struct_3I.unpack(str[start:end])
-      start = end
-      end += 4
-      (length,) = _struct_I.unpack(str[start:end])
-      start = end
-      end += length
-      if python3:
-        self.pose.header.frame_id = str[start:end].decode('utf-8')
-      else:
-        self.pose.header.frame_id = str[start:end]
-      _x = self
-      start = end
-      end += 53
-      (_x.pose.x, _x.pose.y, _x.pose.theta, _x.pose.vel, _x.pose.omega, _x.pose.x_var, _x.pose.y_var, _x.pose.theta_var, _x.pose.vel_var, _x.pose.omega_var, _x.thetaFinal, _x.distanceTol, _x.thetaTol, _x.direction,) = _struct_13fB.unpack(str[start:end])
+      end += 69
+      (_x.pose.position.x, _x.pose.position.y, _x.pose.position.z, _x.pose.orientation.x, _x.pose.orientation.y, _x.pose.orientation.z, _x.pose.orientation.w, _x.thetaFinal, _x.distanceTol, _x.thetaTol, _x.direction,) = _struct_7d3fB.unpack(str[start:end])
       self.direction = bool(self.direction)
       return self
     except struct.error as e:
@@ -179,23 +120,7 @@ float32 omega_var
     """
     try:
       _x = self
-      buff.write(_struct_3I.pack(_x.header.seq, _x.header.stamp.secs, _x.header.stamp.nsecs))
-      _x = self.header.frame_id
-      length = len(_x)
-      if python3 or type(_x) == unicode:
-        _x = _x.encode('utf-8')
-        length = len(_x)
-      buff.write(struct.pack('<I%ss'%length, length, _x))
-      _x = self
-      buff.write(_struct_3I.pack(_x.pose.header.seq, _x.pose.header.stamp.secs, _x.pose.header.stamp.nsecs))
-      _x = self.pose.header.frame_id
-      length = len(_x)
-      if python3 or type(_x) == unicode:
-        _x = _x.encode('utf-8')
-        length = len(_x)
-      buff.write(struct.pack('<I%ss'%length, length, _x))
-      _x = self
-      buff.write(_struct_13fB.pack(_x.pose.x, _x.pose.y, _x.pose.theta, _x.pose.vel, _x.pose.omega, _x.pose.x_var, _x.pose.y_var, _x.pose.theta_var, _x.pose.vel_var, _x.pose.omega_var, _x.thetaFinal, _x.distanceTol, _x.thetaTol, _x.direction))
+      buff.write(_struct_7d3fB.pack(_x.pose.position.x, _x.pose.position.y, _x.pose.position.z, _x.pose.orientation.x, _x.pose.orientation.y, _x.pose.orientation.z, _x.pose.orientation.w, _x.thetaFinal, _x.distanceTol, _x.thetaTol, _x.direction))
     except struct.error as se: self._check_types(se)
     except TypeError as te: self._check_types(te)
 
@@ -206,46 +131,17 @@ float32 omega_var
     :param numpy: numpy python module
     """
     try:
-      if self.header is None:
-        self.header = std_msgs.msg.Header()
       if self.pose is None:
-        self.pose = cutter_msgs.msg.Pose()
+        self.pose = geometry_msgs.msg.Pose()
       end = 0
       _x = self
       start = end
-      end += 12
-      (_x.header.seq, _x.header.stamp.secs, _x.header.stamp.nsecs,) = _struct_3I.unpack(str[start:end])
-      start = end
-      end += 4
-      (length,) = _struct_I.unpack(str[start:end])
-      start = end
-      end += length
-      if python3:
-        self.header.frame_id = str[start:end].decode('utf-8')
-      else:
-        self.header.frame_id = str[start:end]
-      _x = self
-      start = end
-      end += 12
-      (_x.pose.header.seq, _x.pose.header.stamp.secs, _x.pose.header.stamp.nsecs,) = _struct_3I.unpack(str[start:end])
-      start = end
-      end += 4
-      (length,) = _struct_I.unpack(str[start:end])
-      start = end
-      end += length
-      if python3:
-        self.pose.header.frame_id = str[start:end].decode('utf-8')
-      else:
-        self.pose.header.frame_id = str[start:end]
-      _x = self
-      start = end
-      end += 53
-      (_x.pose.x, _x.pose.y, _x.pose.theta, _x.pose.vel, _x.pose.omega, _x.pose.x_var, _x.pose.y_var, _x.pose.theta_var, _x.pose.vel_var, _x.pose.omega_var, _x.thetaFinal, _x.distanceTol, _x.thetaTol, _x.direction,) = _struct_13fB.unpack(str[start:end])
+      end += 69
+      (_x.pose.position.x, _x.pose.position.y, _x.pose.position.z, _x.pose.orientation.x, _x.pose.orientation.y, _x.pose.orientation.z, _x.pose.orientation.w, _x.thetaFinal, _x.distanceTol, _x.thetaTol, _x.direction,) = _struct_7d3fB.unpack(str[start:end])
       self.direction = bool(self.direction)
       return self
     except struct.error as e:
       raise genpy.DeserializationError(e) #most likely buffer underfill
 
 _struct_I = genpy.struct_I
-_struct_3I = struct.Struct("<3I")
-_struct_13fB = struct.Struct("<13fB")
+_struct_7d3fB = struct.Struct("<7d3fB")

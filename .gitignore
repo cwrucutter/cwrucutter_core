@@ -7,5 +7,6 @@ lib/
 *.swp
 *.pyo
 *.pyc
+_*.py
 *~
 *.bag
