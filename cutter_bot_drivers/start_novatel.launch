@@ -7,4 +7,16 @@
 
   <!-- Publish the static transform from base_link to gps -->
   <node pkg="tf" type="static_transform_publisher" name="tf_publisher_gps" args=".4 0 0 0 0 0 base_link gps 100"/>
+  
+  <!-- Set the GPS Reference Point -->
+  <param name="ref_lat" value="41.5012408976" type="double"/>
+  <param name="ref_lon" value="-81.6063695197" type="double"/>
+  <param name="ref_alt" value="216.9" type="double"/>
+
+  <!-- Launch the Novatel GPS converter node from Lat/Lon/Velocity to Pose -->
+  <node pkg="cuter_bot_drivers" type="gps_conversion" name="conversion_gps">
+    <param name="gps" value="gps_fix" type="string"/>
+    <param name="vel" value="gps_vel" type="string"/>
+    <param name="pose" value="gps_pose" type="string"/>
+  </node>
 </launch>
