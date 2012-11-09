@@ -12,6 +12,7 @@
   <depend package="tf"/>
   <depend package="nav_msgs"/>
   <depend package="cutter_msgs"/>
+  <depend package="bfl"/>
 </package>
 
 

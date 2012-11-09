@@ -9,5 +9,5 @@
     <node pkg="tf" type="static_transform_publisher" name="localization" args="0 0 0 0 0 0 map odom 100"/>
 
     <!-- Create the localization message that CWRUCutter planning/driving will use -->
-    <node pkg="cutter_localization" type="sim_localization.py" name="sim_localize"/>
+    <node pkg="cutter_sim_stage" type="sim_localization.py" name="sim_localize"/>
 </launch>
