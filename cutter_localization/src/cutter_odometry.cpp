@@ -205,19 +205,14 @@ int main(int argc, char** argv)
   CutterOdometry odometry;
   
   //ros::spin();
+  if (!odometry.lookupParams())
+    ROS_ERROR("Parameters not found");
 
   ros::Rate loop_rate(10.0);
   while (ros::ok())
   {
-    if (odometry.lookupParams())
-    {
-      ros::spinOnce();
-      odometry.sendOdometry();
-    }
-    else
-    {
-      ROS_WARN("Parameters not found");
-    }
+    ros::spinOnce();
+    odometry.sendOdometry();
     loop_rate.sleep();
   }
 
