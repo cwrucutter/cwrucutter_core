@@ -44,6 +44,8 @@ def callback(data,pub):
     state_msg = State()
 
     # Populate x,y,theta and velocity
+    state_msg.header.stamp = rospy.get_rostime()
+    state_msg.header.frame_id = "map"
     state_msg.pose.pose = data.pose.pose
     state_msg.twist.twist = data.twist.twist
 
