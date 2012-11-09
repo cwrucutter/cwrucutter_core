@@ -106,7 +106,7 @@ bool CutterOdometry::sendOdometry()
   
   double start = ros::Time::now().toSec();
 
-  double dT  = 50.0;
+  double dT  = .10;
   double Dr, Dl, Vr, Vl;
   Dr = double(enc_right_ - enc_right_old_) / ticks_per_m_right_;
   Dl = double(enc_left_  - enc_left_old_ ) / ticks_per_m_left_;
@@ -138,6 +138,7 @@ bool CutterOdometry::sendOdometry()
   double end = ros::Time::now().toSec();
   ROS_INFO("Encoders: Dr: %f Dl: %f x_: %f y_: %f tht_: %f",Dr,Dl,x_,y_,tht_);
   ROS_INFO("          xnew: %f ynew: %f thtn: %f duration: %f",xnew,ynew,thtn,end-start);
+  ROS_INFO("          Vr: %f Vl: %f", Vr, Vl);
   
   // Store Values
   x_   = xnew;
