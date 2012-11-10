@@ -53,6 +53,7 @@ class CutterSteering
     double v_a_max_;
     double w_a_max_;
     double K_w_proportional_;
+    double K_v_proportional_;
     double w_deadband_;
     double v_deadband_;
 
@@ -74,7 +75,7 @@ class CutterSteering
 
 void CutterSteering::wayPointCB(const cutter_msgs::WayPoint &wp)
 {
-  //target_waypoint_ = wp;
+  target_waypoint_ = wp;
 
   ROS_INFO("Steering got updated waypoint information");
 }
@@ -99,7 +100,7 @@ CutterSteering::CutterSteering():
   cutter_msgs::WayPoint test_waypoint_;
   test_waypoint_.pose.position.x = 1.0;
   test_waypoint_.pose.position.y = 1.0;
-  target_waypoint_ = test_waypoint_;
+  //target_waypoint_ = test_waypoint_;
   map_pose_.orientation = tf::createQuaternionMsgFromYaw(0.0);
   got_state_ = false;
 
@@ -134,6 +135,7 @@ bool CutterSteering::lookupParams()
   test = ros::param::get("~v_a_max", v_a_max_) && test;
   test = ros::param::get("~w_a_max", w_a_max_) && test;
   test = ros::param::get("~K_w_proportional", K_w_proportional_) && test;
+  test = ros::param::get("~K_v_proportional", K_v_proportional_) && test;
   //test = ros::param::get("~w_deadband", w_deadband_) && test;
   //test = ros::param::get("~v_deadband", v_deadband_) && test;
   return test;
@@ -142,9 +144,24 @@ bool CutterSteering::lookupParams()
 double CutterSteering::profile(double vw, double last_vw, double max_vw, double a)
 {
   if( vw > 0 )
-    return std::min(std::min(vw, last_vw + a*(1.0/Hz)), max_vw);
+    return 
+      std::max(
+        std::min(
+          std::min(
+            vw, 
+            last_vw + a*(1.0/Hz)), 
+          max_vw),
+        last_vw-a*(1.0/Hz));
+        
   else 
-    return std::max(std::max(vw, last_vw - a*(1.0/Hz)), -max_vw);
+    return 
+      std::min(
+        std::max(
+          std::max(
+            vw,
+            last_vw - a*(1.0/Hz)),
+          -max_vw),
+        last_vw+a*(1.0/Hz));
 }
 
 double CutterSteering::euclideanDistance(geometry_msgs::Point p, geometry_msgs::Point q)
@@ -170,11 +187,14 @@ void CutterSteering::steer()
   double targetDistance = euclideanDistance(map_pose_.position, target_waypoint_.pose.position);
   double xDistance = target_waypoint_.pose.position.x - map_pose_.position.x;
   double yDistance = target_waypoint_.pose.position.y - map_pose_.position.y;
+
+//  double brakingDistance = (last_cmd_vel_.linear.x/a_max_)*(last_v_/2.0); // (m/s)/(m/s/s)*m/s/2) = m/2 
+
   ROS_INFO("Robot (%.2f,%2f) distance to next waypoint (%.2f,%.2f): %f", map_pose_.position.x, map_pose_.position.y, target_waypoint_.pose.position.x, target_waypoint_.pose.position.y, targetDistance);
 
   if (xDistance == 0 || yDistance == 0)
   {
-    ROS_WARN("Starting up? xDistance or yDistance fro mrobot to waypoint is 0!!");
+    ROS_WARN("Starting up? xDistance or yDistance from robot to waypoint is 0!!");
     targetTheta = 0;
   }
   else
@@ -198,11 +218,13 @@ void CutterSteering::steer()
     //Are we there (x,y)?
     if (targetDistance < target_waypoint_.distanceTol)
     {
-      ROS_DEBUG("We made it to the waypoint.");
-      //find desired heading given Pose and NextWayPt
-      //Are we at the desired heading?
-      //if not, issue only w command (pivot)
-      //set last = target, taget = next, next = nextnext
+      ROS_INFO("We made it to the waypoint.");
+
+      //don't move until a new waypoint is issued.
+      v = 0;
+      w = 0;
+
+      //call for new waypoint from path planner
     }
     else
     {
@@ -210,24 +232,27 @@ void CutterSteering::steer()
       //find desired heading given Pose and TargetWayPt
       thetaDesired = targetTheta; // for now just want to aim at target (TODO: remove stopgap measures)
       //find difference in Pose-heading and desired-heading
-      /*
-      thetaError = robotTheta - thetaDesired;
-      if (thetaError > M_PI)
-        thetaError = thetaError - 2*M_PI;
-      if (thetaError < -M_PI)
-        thetaError = thetaError + 2*M_PI;
-      */
       thetaError = angles::shortest_angular_distance(thetaDesired, robotTheta); // ros tf angles
       ROS_INFO("found theta diff: %f", thetaError);
 
+      if (fabs(thetaError) > 0.1)
+      {
+        v = 0;
+      }
+      else
+      {
+        //if (targetDistance < v_a_max_) //if the robot is close enough to 
+        v = targetDistance*K_v_proportional_;
+      }
 
       w = -K_w_proportional_*thetaError;
       ROS_INFO("Set w: %f", w);
-      //find curvature? w = k*v?
     }
     
     //stay within limits
     w = profile(w, last_cmd_vel_.angular.z, w_max_, w_a_max_);
+    v = profile(v, last_cmd_vel_.linear.x, v_max_, v_a_max_);
+
     ROS_INFO("profiled w: %f", w);
   }
 
@@ -235,13 +260,14 @@ void CutterSteering::steer()
   geometry_msgs::Twist steeringMsg;
   
   //set v, w. 
-  steeringMsg.linear.x = 0;
+  steeringMsg.linear.x = v;
   steeringMsg.angular.z = w;
 
   //publish command velocity
   cmd_vel_pub_.publish(steeringMsg);
 
   //save everything important for next time
+  //set last = target, taget = next, next = nextnext
   last_cmd_vel_ = steeringMsg;
 }
 
