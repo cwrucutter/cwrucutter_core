@@ -1,0 +1,5 @@
+bool increment 
+---
+int32 pointsLeft
+cutter_msgs/WayPoint currWayPoint
+cutter_msgs/WayPoint nextWayPoint

@@ -11,6 +11,8 @@
   <review status="unreviewed" notes=""/>
   <url>http://ros.org/wiki/cutter_planner</url>
   <depend package="roscpp"/>
+  <depend package="cutter_msgs"/>
+  <depend package="tf"/>
 
 </package>
 

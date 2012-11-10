@@ -20,6 +20,7 @@
 #include <tf/tf.h> // for tf::getYaw
 #include "angles/angles.h" // part of tf stack, get angular distance etc
 #include <cutter_msgs/WayPoint.h>
+#include <cutter_msgs/GetWayPoints.h>
 #include <cutter_msgs/State.h>
 #include <algorithm>
 
@@ -32,6 +33,7 @@ class CutterSteering
   public:
     CutterSteering();
     bool lookupParams();
+    bool getFirstWayPoint();
     void steer();
   
   private:
@@ -40,6 +42,7 @@ class CutterSteering
   
     double euclideanDistance(geometry_msgs::Point p, geometry_msgs::Point q);
     double profile(double vw, double last_vw, double max_vw, double a);
+    bool publishVW(double v, double w);
 
     ros::NodeHandle nh_;
   
@@ -59,6 +62,7 @@ class CutterSteering
 
     //member variables
     bool got_state_;
+    bool got_waypoint_;
     geometry_msgs::Twist last_cmd_vel_;
     cutter_msgs::State last_state_;
     cutter_msgs::State state_;
@@ -69,6 +73,9 @@ class CutterSteering
     cutter_msgs::WayPoint last_waypoint_;
     cutter_msgs::WayPoint target_waypoint_;
     cutter_msgs::WayPoint next_waypoint_;
+
+    ros::ServiceClient waypoint_client_;
+    cutter_msgs::GetWayPoints waypoint_srv_;
 
 };
 
@@ -90,12 +97,13 @@ void CutterSteering::stateCB(const cutter_msgs::State &state)
   got_state_ = true;
 }
 
+
 //##constructor##
 CutterSteering::CutterSteering():
   v_max_(1.0), w_max_(1.0), v_a_max_(1.0), w_a_max_(1.0), K_w_proportional_(0.1), v_deadband_(.001), w_deadband_(.001) //params(defaults)
 {
 
-  //member variable intializations
+  //member variable initializations
   //no need to initialize params.
   cutter_msgs::WayPoint test_waypoint_;
   test_waypoint_.pose.position.x = 1.0;
@@ -103,10 +111,7 @@ CutterSteering::CutterSteering():
   //target_waypoint_ = test_waypoint_;
   map_pose_.orientation = tf::createQuaternionMsgFromYaw(0.0);
   got_state_ = false;
-
-  //last timestep
-
-  //current timestep
+  got_waypoint_ = false;
 
   //set up subscribers
   state_sub_ = nh_.subscribe("cwru/state",1,&CutterSteering::stateCB,this);
@@ -114,6 +119,9 @@ CutterSteering::CutterSteering():
 
   //set up publisher
   cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>("cmd_vel",1);
+
+  //set up client for waypoints from path planner
+  waypoint_client_ = nh_.serviceClient<cutter_msgs::GetWayPoints>("get_waypoint");
 
   //wait for transformers before letting anything else happen in this node
   /*
@@ -124,6 +132,30 @@ CutterSteering::CutterSteering():
     ros::spinOnce();
   } 
   */
+}
+
+
+bool CutterSteering::getFirstWayPoint()
+{
+  if (got_waypoint_)
+    return true;
+
+  waypoint_srv_.request.increment = false;
+  if(waypoint_client_.call(waypoint_srv_))
+  {
+    if (waypoint_srv_.response.pointsLeft > 0)
+    {
+      got_waypoint_ = true; 
+      ROS_INFO("Got first waypoint");
+
+      last_waypoint_ = cutter_msgs::WayPoint();
+      target_waypoint_ = waypoint_srv_.response.currWayPoint;
+      next_waypoint_ = waypoint_srv_.response.nextWayPoint;
+
+      return true;
+    }
+  }
+  return false;
 }
 
 
@@ -140,6 +172,7 @@ bool CutterSteering::lookupParams()
   //test = ros::param::get("~v_deadband", v_deadband_) && test;
   return test;
 }
+
 
 double CutterSteering::profile(double vw, double last_vw, double max_vw, double a)
 {
@@ -176,6 +209,14 @@ void CutterSteering::steer()
   if (!got_state_)
   {
     ROS_WARN("Steering tried to steer, but hasn't got a state");
+    publishVW(0,0);
+    return;
+  }
+
+  if (!getFirstWayPoint())
+  {
+    ROS_WARN("Steering tried to steer, but has no more waypoints");
+    publishVW(0,0);
     return;
   }
 
@@ -225,6 +266,30 @@ void CutterSteering::steer()
       w = 0;
 
       //call for new waypoint from path planner
+
+      waypoint_srv_.request.increment = true;
+      if(waypoint_client_.call(waypoint_srv_))
+      {
+        if (waypoint_srv_.response.pointsLeft > 0)
+        {
+          got_waypoint_ = true; 
+          ROS_INFO("Got next waypoint");
+
+          last_waypoint_ = target_waypoint_;
+          target_waypoint_ = waypoint_srv_.response.currWayPoint;
+          next_waypoint_ = waypoint_srv_.response.nextWayPoint;
+        }
+        else
+        {
+          ROS_INFO("No more waypoints");
+          got_waypoint_ = false; 
+        }
+      }
+      else
+      {
+        ROS_WARN("Couldn't contact Path Planner's waypoint service");
+        got_waypoint_ = false; 
+      }
     }
     else
     {
@@ -256,6 +321,14 @@ void CutterSteering::steer()
     ROS_INFO("profiled w: %f", w);
   }
 
+  publishVW(v,w);
+
+  return;
+}
+
+bool CutterSteering::publishVW(double v, double w)
+{
+
   // create a message
   geometry_msgs::Twist steeringMsg;
   
@@ -269,6 +342,8 @@ void CutterSteering::steer()
   //save everything important for next time
   //set last = target, taget = next, next = nextnext
   last_cmd_vel_ = steeringMsg;
+
+  return true;
 }
 
 
