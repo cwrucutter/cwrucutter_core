@@ -45,16 +45,19 @@ class CutterSteering
     ros::Subscriber state_sub_;
     ros::Subscriber way_point_sub_;
 
+	//parameters
     double v_max_;
     double w_max_;
     double v_a_max_;
     double w_a_max_;
 
+	//member variables
     cutter_msgs::State last_state_;
     cutter_msgs::State state_;
-    geometry_msgs::PoseStamped last_map_pose_;
-    geometry_msgs::PoseStamped map_pose_;
+    geometry_msgs::Pose last_map_pose_;
+    geometry_msgs::Pose map_pose_;
 
+	cutter_msgs::WayPoint test_waypoint_;
     cutter_msgs::WayPoint last_waypoint_;
     cutter_msgs::WayPoint target_waypoint_;
     cutter_msgs::WayPoint next_waypoint_;
@@ -72,8 +75,8 @@ void CutterSteering::wayPointCB(const cutter_msgs::WayPoint &wp)
 
 void CutterSteering::stateCB(const cutter_msgs::State &state)
 {
-  //state_ = state;
-  //map_pose_ = state->pose.pose;
+  state_ = state;
+  map_pose_ = state.pose.pose;
 
   ROS_DEBUG("Steering got updated state");
 }
@@ -85,6 +88,11 @@ CutterSteering::CutterSteering():
 
   //member variable intializations
   //no need to initialize params.
+  cutter_msgs::WayPoint test_waypoint_;
+	test_waypoint_.pose.position.x = 1.0;
+	test_waypoint_.pose.position.y = 1.0;
+	target_waypoint_ = test_waypoint_;
+
 
   //last timestep
 
@@ -129,13 +137,13 @@ void CutterSteering::steer()
   double v, w;
 
   //check distance to WayPt.
-  double targetDistance = euclideanDistance(map_pose_.pose.position, last_waypoint_.pose.position);
-  double xDistance = map_pose_.pose.position.x - target_waypoint_.pose.position.x;
-  double yDistance = map_pose_.pose.position.y - target_waypoint_.pose.position.y;
-  ROS_DEBUG("Robot (%.2f,%2f) distance to next waypoint (%.2f,%.2f): %f", map_pose_.pose.position.x, map_pose_.pose.position.y, target_waypoint_.pose.position.x, target_waypoint_.pose.position.y, targetDistance);
+  double targetDistance = euclideanDistance(map_pose_.position, last_waypoint_.pose.position);
+  double xDistance = map_pose_.position.x - target_waypoint_.pose.position.x;
+  double yDistance = map_pose_.position.y - target_waypoint_.pose.position.y;
+  ROS_DEBUG("Robot (%.2f,%2f) distance to next waypoint (%.2f,%.2f): %f", map_pose_.position.x, map_pose_.position.y, target_waypoint_.pose.position.x, target_waypoint_.pose.position.y, targetDistance);
 
   double targetTheta = atan2(xDistance, yDistance);
-  double robotTheta = tf::getYaw(map_pose_.pose.orientation);
+  double robotTheta = tf::getYaw(map_pose_.orientation);
   ROS_DEBUG("Angle to target: %f \t\t Angle of robot: %f", targetTheta, robotTheta);
 
   //Are we there (x,y)?
