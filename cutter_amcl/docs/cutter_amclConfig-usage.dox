@@ -1,0 +1,32 @@
+\subsubsection usage Usage
+\verbatim
+<node name="cutter_amcl" pkg="cutter_amcl" type="cutter_amcl">
+  <param name="min_particles" type="int" value="100" />
+  <param name="max_particles" type="int" value="5000" />
+  <param name="kld_err" type="double" value="0.01" />
+  <param name="kld_z" type="double" value="0.99" />
+  <param name="update_min_d" type="double" value="0.2" />
+  <param name="update_min_a" type="double" value="0.523598775598" />
+  <param name="resample_interval" type="int" value="2" />
+  <param name="transform_tolerance" type="double" value="0.1" />
+  <param name="recovery_alpha_slow" type="double" value="0.0" />
+  <param name="recovery_alpha_fast" type="double" value="0.0" />
+  <param name="gui_publish_rate" type="double" value="-1.0" />
+  <param name="save_pose_rate" type="double" value="0.5" />
+  <param name="use_map_topic" type="bool" value="False" />
+  <param name="first_map_only" type="bool" value="False" />
+  <param name="gps_sigma" type="double" value="0.2" />
+  <param name="gps_model_type" type="str" value="leverarm" />
+  <param name="odom_model_type" type="str" value="diff" />
+  <param name="odom_alpha1" type="double" value="0.2" />
+  <param name="odom_alpha2" type="double" value="0.2" />
+  <param name="odom_alpha3" type="double" value="0.2" />
+  <param name="odom_alpha4" type="double" value="0.2" />
+  <param name="odom_alpha5" type="double" value="0.2" />
+  <param name="odom_frame_id" type="str" value="odom" />
+  <param name="base_frame_id" type="str" value="base_link" />
+  <param name="global_frame_id" type="str" value="map" />
+  <param name="restore_defaults" type="bool" value="False" />
+</node>
+\endverbatim
+

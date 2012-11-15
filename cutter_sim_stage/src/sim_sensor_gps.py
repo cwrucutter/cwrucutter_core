@@ -35,32 +35,68 @@
 import roslib
 roslib.load_manifest('cutter_sim_stage')
 import rospy
-from cutter_msgs.msg import State
+from geometry_msgs.msg import PoseWithCovarianceStamped
+from geometry_msgs.msg import Quaternion
 from nav_msgs.msg import Odometry
 from tf.transformations import euler_from_quaternion
+from tf.transformations import quaternion_from_euler
+from tf.transformations import rotation_matrix
+
+import math, numpy, random
        
 def callback(data,pub):
     # rospy.loginfo('callback called')
-    state_msg = State()
+    gps_msg = PoseWithCovarianceStamped()
+    
+    # Set parameters
+    xoff = 0.6
+    yoff = 0.0
+    std = .1
+    rot = math.pi/2
 
-    # Populate x,y,theta and velocity
-    state_msg.header.stamp = data.header.stamp
-    state_msg.header.frame_id = "map"
-    state_msg.pose.pose = data.pose.pose
-    state_msg.twist.twist = data.twist.twist
+    # Rotate the base pose
+    origin, zaxis = (0, 0, 0), (0, 0, 1) 
+    Rz = rotation_matrix(rot, zaxis, origin)
+    pt = numpy.matrix((data.pose.pose.position.x, data.pose.pose.position.y, data.pose.pose.position.z, 0),dtype=numpy.float64).T
+    xy = Rz*pt
+    
+    # Add the angle rotation
+    oldAng = data.pose.pose.orientation
+    ang = euler_from_quaternion([ oldAng.x, oldAng.y, oldAng.z, oldAng.w ])
+    ang = ang[0], ang[1], ang[2] + rot
+    
+    # Offset the GPS reading by the lever arm offset
+    x = xy[0] + xoff*math.cos(ang[2])
+    y = xy[1] + xoff*math.sin(ang[2])
+    gps_x = x + random.gauss(0,std)
+    gps_y = y + random.gauss(0,std)
+    #print "testing"
+    #print xy
+    #print x,y
+    #print gps_x, gps_y    
+
+    # Populate the angle
+    # Note... GPS doesnt really return a heading!! So we cant use to localize... rememmmmberrrrr
+    gps_msg.pose.pose.orientation = Quaternion(*quaternion_from_euler(*ang))
+    
+    # Populate x,y
+    gps_msg.header.stamp = data.header.stamp
+    gps_msg.header.frame_id = "map"
+    gps_msg.pose.pose.position.x = x
+    gps_msg.pose.pose.position.y = y
 
     # Publish
-    pub.publish(state_msg)
+    pub.publish(gps_msg)
 
-def sim_localize():
-    rospy.init_node('sim_localize')
+def sensor_sim_gps():
+    rospy.init_node('sensor_sim_gps')
 
-    pub = rospy.Publisher("cwru/state",State)
-    rospy.Subscriber("odom", Odometry, callback, pub)
+    pub = rospy.Publisher("/gps_pose",PoseWithCovarianceStamped)
+    rospy.Subscriber("base_pose_ground_truth", Odometry, callback, pub)
     rospy.spin()
 
 if __name__ == "__main__":
     try:
-        sim_localize()
+        sensor_sim_gps()
     except rospy.ROSInterruptException: pass
 

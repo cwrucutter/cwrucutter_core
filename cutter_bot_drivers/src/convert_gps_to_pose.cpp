@@ -27,7 +27,7 @@
  ********************************************************************************
  * convert_gps_to_pose.cpp
  *   Converts a GPS NavSatFix message to a PoseWithCovarianceStamped
- *   TODO: Also look at the velocity message and publish a TwistWithCovarianceStamped
+ *   (But, I could also publish a PoseStamped which can be visualized in Rviz)
  * 
  * Subscribes:
  *   - gps_fix (sensor_msgs/NavSatFix): Current GPS reading
@@ -115,7 +115,7 @@ CutterGPSConversion::CutterGPSConversion()
   }
   
   // Setup Publishers and subscribers
-  pose_pub_ = node_.advertise<geometry_msgs::PoseStamped>(pose,1);
+  pose_pub_ = node_.advertise<geometry_msgs::PoseWithCovarianceStamped>(pose,1);
   gps_sub_ = node_.subscribe(gps, 1, &CutterGPSConversion::gpsCallback, this);
   vel_sub_ = node_.subscribe(vel, 1, &CutterGPSConversion::velCallback, this);
 }
@@ -131,20 +131,21 @@ void CutterGPSConversion::publishState()
   ros::Time current_time = ros::Time::now();  
 
   // Pose message: Setup header
-  geometry_msgs::PoseStamped pose_msg;
-  pose_msg.header.stamp = current_time; //TODO: Should I use the current time or use the time from the gps message??
+  geometry_msgs::PoseWithCovarianceStamped pose_msg;
+  pose_msg.header.stamp = fix_.header.stamp; //TODO: Should I use the current time or use the time from the gps message??
   pose_msg.header.frame_id = "map";
 
   // Pose message: Set the pose
-  pose_msg.pose.position = point;
+  pose_msg.pose.pose.position = point;
 
   // Pose message: Set the orientation
   double trackAngle = atan2(vel_.twist.linear.y, vel_.twist.linear.x);
   //ROS_INFO("Xvel: %f, Yvel: %f, angle: %f", vel_.twist.linear.x, vel_.twist.linear.y, trackAngle);
-  pose_msg.pose.orientation = tf::createQuaternionMsgFromYaw(trackAngle);
+  pose_msg.pose.pose.orientation = tf::createQuaternionMsgFromYaw(trackAngle);
 
   // Pose message: Set the covariance
   // TODO: Set the covariance according to the NavSatFix message
+  // spose_msg.pose.covariance = ....
 
   // Publish the state
   pose_pub_.publish(pose_msg);
