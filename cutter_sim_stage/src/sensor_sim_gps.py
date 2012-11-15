@@ -51,7 +51,7 @@ def callback(data,pub):
     # Set parameters
     xoff = 0.6
     yoff = 0.0
-    std = .05
+    std = .1
     rot = math.pi/2
 
     # Rotate the base pose
@@ -81,9 +81,9 @@ def callback(data,pub):
     
     # Populate x,y
     gps_msg.header.stamp = data.header.stamp
-    gps_msg.header.frame_id = "map"
-    gps_msg.pose.pose.position.x = gps_x
-    gps_msg.pose.pose.position.y = gps_y
+    gps_msg.header.frame_id = "/map"
+    gps_msg.pose.pose.position.x = x
+    gps_msg.pose.pose.position.y = y
 
     # Publish
     pub.publish(gps_msg)
