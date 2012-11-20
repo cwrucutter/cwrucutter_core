@@ -36,6 +36,7 @@ import roslib
 roslib.load_manifest('cutter_sim_stage')
 import rospy
 from geometry_msgs.msg import PoseWithCovarianceStamped
+from geometry_msgs.msg import PoseStamped
 from geometry_msgs.msg import Quaternion
 from nav_msgs.msg import Odometry
 from tf.transformations import euler_from_quaternion
@@ -46,7 +47,8 @@ import math, numpy, random
        
 def callback(data,pub):
     # rospy.loginfo('callback called')
-    gps_msg = PoseWithCovarianceStamped()
+    # gps_msg = PoseWithCovarianceStamped()
+    gps_msg = PoseStamped()
     
     # Set parameters
     xoff = 0.6
@@ -77,13 +79,16 @@ def callback(data,pub):
 
     # Populate the angle
     # Note... GPS doesnt really return a heading!! So we cant use to localize... rememmmmberrrrr
-    gps_msg.pose.pose.orientation = Quaternion(*quaternion_from_euler(*ang))
+    # gps_msg.pose.pose.orientation = Quaternion(*quaternion_from_euler(*ang))
+    gps_msg.pose.orientation = Quaternion(*quaternion_from_euler(*ang))
     
     # Populate x,y
     gps_msg.header.stamp = data.header.stamp
     gps_msg.header.frame_id = "map"
-    gps_msg.pose.pose.position.x = gps_x
-    gps_msg.pose.pose.position.y = gps_y
+    #gps_msg.pose.pose.position.x = gps_x
+    #gps_msg.pose.pose.position.y = gps_y
+    gps_msg.pose.position.x = gps_x
+    gps_msg.pose.position.y = gps_y
 
     # Publish
     pub.publish(gps_msg)
@@ -91,7 +96,7 @@ def callback(data,pub):
 def sensor_sim_gps():
     rospy.init_node('sensor_sim_gps')
 
-    pub = rospy.Publisher("/gps_pose",PoseWithCovarianceStamped)
+    pub = rospy.Publisher("/gps_pose",PoseStamped)
     rospy.Subscriber("base_pose_ground_truth", Odometry, callback, pub)
     rospy.spin()
 

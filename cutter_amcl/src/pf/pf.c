@@ -301,7 +301,7 @@ void pf_update_resample(pf_t *pf)
   w_diff = 1.0 - pf->w_fast / pf->w_slow;
   if(w_diff < 0.0)
     w_diff = 0.0;
-  //printf("w_diff: %9.6f\n", w_diff);
+  printf("w_diff: %9.6f\n", w_diff);
 
   // Can't (easily) combine low-variance sampler with KLD adaptive
   // sampling, so we'll take the more traditional route.

@@ -60,6 +60,8 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/TwistStamped.h>
 
+#define USE_COVARIANCE 0
+
 class CutterGPSConversion
 {
   public:
@@ -115,7 +117,11 @@ CutterGPSConversion::CutterGPSConversion()
   }
   
   // Setup Publishers and subscribers
+#if USE_COVARIANCE
   pose_pub_ = node_.advertise<geometry_msgs::PoseWithCovarianceStamped>(pose,1);
+#else
+  pose_pub_ = node_.advertise<geometry_msgs::PoseStamped>(pose,1);
+#endif
   gps_sub_ = node_.subscribe(gps, 1, &CutterGPSConversion::gpsCallback, this);
   vel_sub_ = node_.subscribe(vel, 1, &CutterGPSConversion::velCallback, this);
 }
@@ -130,6 +136,7 @@ void CutterGPSConversion::publishState()
 
   ros::Time current_time = ros::Time::now();  
 
+#if USE_COVARIANCE
   // Pose message: Setup header
   geometry_msgs::PoseWithCovarianceStamped pose_msg;
   pose_msg.header.stamp = fix_.header.stamp; //TODO: Should I use the current time or use the time from the gps message??
@@ -146,6 +153,20 @@ void CutterGPSConversion::publishState()
   // Pose message: Set the covariance
   // TODO: Set the covariance according to the NavSatFix message
   // spose_msg.pose.covariance = ....
+#else
+  // Pose message: Setup header
+  geometry_msgs::PoseStamped pose_msg;
+  pose_msg.header.stamp = fix_.header.stamp; //TODO: Should I use the current time or use the time from the gps message??
+  pose_msg.header.frame_id = "map";
+
+  // Pose message: Set the pose
+  pose_msg.pose.position = point;
+
+  // Pose message: Set the orientation
+  double trackAngle = atan2(vel_.twist.linear.y, vel_.twist.linear.x);
+  //ROS_INFO("Xvel: %f, Yvel: %f, angle: %f", vel_.twist.linear.x, vel_.twist.linear.y, trackAngle);
+  pose_msg.pose.orientation = tf::createQuaternionMsgFromYaw(trackAngle);
+#endif
 
   // Publish the state
   pose_pub_.publish(pose_msg);
@@ -184,20 +205,6 @@ int main(int argc, char** argv)
   ros::init(argc, argv, "localization");
   CutterGPSConversion conversion;
   ros::spin();
-/*
-  while (ros::ok())
-  {
-    if (conversion.fix_rcv_ && conversion.vel_rcv_)
-    {
-      if ( (conversion.fix_.header.stamp - conversion.vel_.header.stamp) < ros::Duration(.5) )
-      {
-        ROS_INFO("WHOOOOOOOOOOOOOOOOOOOOOO!!!!!");
-        conversion.fix_rcv_ = false;
-        conversion.vel_rcv_ = false;
-      }
-    }
-    ros::spinOnce();  
-  }
-*/
+  
   return 0;
 }

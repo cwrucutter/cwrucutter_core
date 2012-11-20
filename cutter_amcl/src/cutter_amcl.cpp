@@ -127,7 +127,7 @@ class AmclNode
     bool globalLocalizationCallback(std_srvs::Empty::Request& req,
                                     std_srvs::Empty::Response& res);
 //    void laserReceived(const sensor_msgs::LaserScanConstPtr& laser_scan);
-    void gpsReceived(const geometry_msgs::PoseWithCovarianceStampedConstPtr& msg);
+    void gpsReceived(const geometry_msgs::PoseStampedConstPtr& msg);
     void initialPoseReceived(const geometry_msgs::PoseWithCovarianceStampedConstPtr& msg);
 //    void mapReceived(const nav_msgs::OccupancyGridConstPtr& msg);
 
@@ -783,37 +783,45 @@ AmclNode::uniformPoseGenerator(void* arg)
 {
   printf("Entering uniformPoseGenerator\n");
   map_t* map = (map_t*)arg;
-#if NEW_UNIFORM_SAMPLING
+    printf("%i\n",__LINE__);
+/*#if NEW_UNIFORM_SAMPLING
   unsigned int rand_index = drand48() * free_space_indices.size();
+    printf("%i\n",__LINE__);
   std::pair<int,int> free_point = free_space_indices[rand_index];
+    printf("%i\n",__LINE__);
   pf_vector_t p;
   p.v[0] = MAP_WXGX(map, free_point.first);
   p.v[1] = MAP_WYGY(map, free_point.second);
   p.v[2] = drand48() * 2 * M_PI - M_PI;
-#else
+    printf("%i\n",__LINE__);
+#else*/
   double min_x, max_x, min_y, max_y;
-
+/*
   min_x = (map->size_x * map->scale)/2.0 - map->origin_x;
   max_x = (map->size_x * map->scale)/2.0 + map->origin_x;
   min_y = (map->size_y * map->scale)/2.0 - map->origin_y;
-  max_y = (map->size_y * map->scale)/2.0 + map->origin_y;
+  max_y = (map->size_y * map->scale)/2.0 + map->origin_y;*/
+  min_x = -10; 
+  min_y = -10;
+  max_x = 10;
+  max_y = 10;
 
   pf_vector_t p;
 
-  ROS_DEBUG("Generating new uniform sample");
-  for(;;)
-  {
+  ROS_INFO("Generating new uniform sample");
+//  for(;;)
+//  {
     p.v[0] = min_x + drand48() * (max_x - min_x);
     p.v[1] = min_y + drand48() * (max_y - min_y);
     p.v[2] = drand48() * 2 * M_PI - M_PI;
     // Check that it's a free cell
-    int i,j;
-    i = MAP_GXWX(map, p.v[0]);
-    j = MAP_GYWY(map, p.v[1]);
-    if(MAP_VALID(map,i,j) && (map->cells[MAP_INDEX(map,i,j)].occ_state == -1))
-      break;
-  }
-#endif
+//    int i,j;
+//    i = MAP_GXWX(map, p.v[0]);
+//    j = MAP_GYWY(map, p.v[1]);
+//    if(MAP_VALID(map,i,j) && (map->cells[MAP_INDEX(map,i,j)].occ_state == -1))
+//      break;
+//  }
+//#endif
   printf("Leaving uniformPoseGenerator\n");
   return p;
 }
@@ -838,8 +846,10 @@ AmclNode::globalLocalizationCallback(std_srvs::Empty::Request& req,
 }
 
 void
-AmclNode::gpsReceived(const geometry_msgs::PoseWithCovarianceStampedConstPtr& gps)
+AmclNode::gpsReceived(const geometry_msgs::PoseStampedConstPtr& gps)
 {
+  double startTime = ros::Time::now().toSec();
+  
   printf("Entering gpsReceived\n");
   last_gps_received_ts_ = ros::Time::now();
   /*if( map_ == NULL ) {
@@ -938,6 +948,7 @@ AmclNode::gpsReceived(const geometry_msgs::PoseWithCovarianceStampedConstPtr& gp
     bool update = fabs(delta.v[0]) > d_thresh_ ||
                   fabs(delta.v[1]) > d_thresh_ ||
                   fabs(delta.v[2]) > a_thresh_;
+    ROS_INFO("xdiff: %f, ydiff: %f, adiff: %f, dthresh: %f, athresh_ %f", fabs(delta.v[0]),fabs(delta.v[1]),fabs(delta.v[2]),d_thresh_,a_thresh_);
 
     // Set the laser update flags
     if(update)
@@ -1002,8 +1013,8 @@ AmclNode::gpsReceived(const geometry_msgs::PoseWithCovarianceStampedConstPtr& gp
     printf("%i\n",__LINE__);
     gdata.sensor = gps_; //gps_vec_[gps_index];
     printf("%i\n",__LINE__);
-    gdata.x = gps->pose.pose.position.x;
-    gdata.y = gps->pose.pose.position.y;
+    gdata.x = gps->pose.position.x;
+    gdata.y = gps->pose.position.y;
     printf("%i\n",__LINE__);
 
     //gps_vec_[gps_index]->UpdateSensor(pf_, (AMCLSensorData*)&gdata);
@@ -1065,7 +1076,7 @@ AmclNode::gpsReceived(const geometry_msgs::PoseWithCovarianceStampedConstPtr& gp
         ROS_ERROR("Couldn't get stats on cluster %d", hyp_count);
         break;
       }
-
+      ROS_INFO("Num Samples: %i, Num Clusters: %i",pf_->sets[pf_->current_set].sample_count,pf_->sets[pf_->current_set].cluster_count);
       hyps[hyp_count].weight = weight;
       hyps[hyp_count].pf_pose_mean = pose_mean;
       hyps[hyp_count].pf_pose_cov = pose_cov;
@@ -1213,6 +1224,8 @@ AmclNode::gpsReceived(const geometry_msgs::PoseWithCovarianceStampedConstPtr& gp
       save_pose_last_time = now;
     }
   }
+  double endTime = ros::Time::now().toSec();
+  ROS_INFO("Loop Duration: %f", endTime-startTime);
   printf("Leaving gpsReceived\n");
 
 }
