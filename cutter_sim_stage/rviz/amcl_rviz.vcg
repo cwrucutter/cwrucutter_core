@@ -1,0 +1,70 @@
+Background\ ColorB=0
+Background\ ColorG=0
+Background\ ColorR=0
+Camera\ Config=39.6659 -0.246819 -0.570121 0
+Camera\ Type=rviz::FixedOrientationOrthoViewController
+Fixed\ Frame=/map
+Grid.Alpha=0.5
+Grid.Cell\ Size=1
+Grid.ColorB=0.5
+Grid.ColorG=0.5
+Grid.ColorR=0.5
+Grid.Enabled=1
+Grid.Line\ Style=0
+Grid.Line\ Width=0.03
+Grid.Normal\ Cell\ Count=0
+Grid.OffsetX=0
+Grid.OffsetY=0
+Grid.OffsetZ=0
+Grid.Plane=0
+Grid.Plane\ Cell\ Count=10
+Grid.Reference\ Frame=<Fixed Frame>
+Odometry.Angle\ Tolerance=0.1
+Odometry.ColorB=1
+Odometry.ColorG=0.666667
+Odometry.ColorR=0.333333
+Odometry.Enabled=1
+Odometry.Keep=100
+Odometry.Length=1
+Odometry.Position\ Tolerance=0.1
+Odometry.Topic=/odom
+Pose.Alpha=1
+Pose.ColorB=0.498039
+Pose.ColorG=1
+Pose.ColorR=1
+Pose.Enabled=1
+Pose.Head\ Length=0.3
+Pose.Head\ Radius=0.2
+Pose.Shaft\ Length=1
+Pose.Shaft\ Radius=0.1
+Pose.Shape=0
+Pose.Topic=/gps_pose
+PoseArray.Arrow\ Length=0.3
+PoseArray.ColorB=0
+PoseArray.ColorG=0.1
+PoseArray.ColorR=1
+PoseArray.Enabled=1
+PoseArray.Topic=/particlecloud
+Property\ Grid\ Splitter=415,78
+Property\ Grid\ State=expanded=.Global Options,Grid.Enabled,Pose.Enabled,Pose.Shape Properties,PoseArray.Enabled,Odometry.Enabled;splitterratio=0.5
+QMainWindow=000000ff00000000fd00000003000000000000011d0000023ffc0200000001fb000000100044006900730070006c006100790073010000001d0000023f000000ee00ffffff00000001000001310000023ffc0200000003fb0000001e0054006f006f006c002000500072006f0070006500720074006900650073010000001d000000930000006700fffffffb0000000a0056006900650077007301000000b60000010d000000bb00fffffffb0000001200530065006c0065006300740069006f006e01000001c9000000930000006700ffffff00000003000003e00000003efc0100000001fb0000000800540069006d00650100000000000003e0000002bf00ffffff000001860000023f00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+Target\ Frame=<Fixed Frame>
+Tool\ 2D\ Nav\ GoalTopic=/move_base_simple/goal
+Tool\ 2D\ Pose\ EstimateTopic=initialpose
+[Display0]
+ClassName=rviz::GridDisplay
+Name=Grid
+[Display1]
+ClassName=rviz::PoseDisplay
+Name=Pose
+[Display2]
+ClassName=rviz::PoseArrayDisplay
+Name=PoseArray
+[Display3]
+ClassName=rviz::OdometryDisplay
+Name=Odometry
+[Window]
+Height=708
+Width=1008
+X=-23
+Y=-56

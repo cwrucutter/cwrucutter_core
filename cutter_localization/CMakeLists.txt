@@ -31,7 +31,9 @@ rosbuild_add_executable(odometry src/cutter_odometry.cpp)
 
 rosbuild_add_boost_directories()
 rosbuild_add_executable(localization_evaluation src/localization_evaluation.cpp)
+rosbuild_add_executable(amcl_to_state src/amcl_to_state.cpp)
 rosbuild_link_boost(localization_evaluation signals)
+rosbuild_link_boost(amcl_to_state signals)
 
 ####rosbuild_add_executable(localization_dgps src/localization_dgps.cpp)
 #target_link_libraries(example ${PROJECT_NAME})

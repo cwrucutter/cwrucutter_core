@@ -1,0 +1,10 @@
+<!-- This file starts the lawnmower autonomous functionality -->
+<launch>
+
+   <!-- Start the planning node -->
+   <node pkg="cutter_planning" type="planner" name="basic_planning" output="screen"/>
+   
+   <!-- Start the steering node --> 
+   <include file="$(find cutter_steering)/start_steering.launch" />
+
+</launch>

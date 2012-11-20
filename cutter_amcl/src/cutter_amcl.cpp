@@ -736,13 +736,7 @@ AmclNode::~AmclNode()
   printf("Entering ~AmclNode\n");
   
   delete dsrv_;
-    printf("%i\n",__LINE__);
-//  freeMapDependentMemory();
-//  delete gps_filter_;
-//  delete gps_sub_;
-    printf("%i\n",__LINE__);
   delete tfb_;
-    printf("%i\n",__LINE__);
   delete tf_;
   printf("Leaving ~AmclNode\n");
   // TODO: delete everything allocated in constructor
@@ -783,17 +777,13 @@ AmclNode::uniformPoseGenerator(void* arg)
 {
   printf("Entering uniformPoseGenerator\n");
   map_t* map = (map_t*)arg;
-    printf("%i\n",__LINE__);
 /*#if NEW_UNIFORM_SAMPLING
   unsigned int rand_index = drand48() * free_space_indices.size();
-    printf("%i\n",__LINE__);
   std::pair<int,int> free_point = free_space_indices[rand_index];
-    printf("%i\n",__LINE__);
   pf_vector_t p;
   p.v[0] = MAP_WXGX(map, free_point.first);
   p.v[1] = MAP_WYGY(map, free_point.second);
   p.v[2] = drand48() * 2 * M_PI - M_PI;
-    printf("%i\n",__LINE__);
 #else*/
   double min_x, max_x, min_y, max_y;
 /*
@@ -863,14 +853,7 @@ AmclNode::gpsReceived(const geometry_msgs::PoseStampedConstPtr& gps)
   if(frame_to_gps_.find(gps->header.frame_id) == frame_to_gps_.end())
   {
     printf("If 1\n");
-    printf("%i\n",__LINE__);
     ROS_INFO("Setting up gps %d (frame_id=%s)\n", (int)frame_to_gps_.size(), gps->header.frame_id.c_str());
-    //gps_vec_.push_back(new AMCLGps(*gps_));
-    //printf("%i\n",__LINE__);
-    //gps_update_.push_back(true);
-    //printf("%i\n",__LINE__);
-    //gps_index = frame_to_gps_.size();
-    //printf("%i\n",__LINE__);
     gps_update_ = true;
 
     tf::Stamped<tf::Pose> ident (tf::Transform(tf::createIdentityQuaternion(),
@@ -878,7 +861,6 @@ AmclNode::gpsReceived(const geometry_msgs::PoseStampedConstPtr& gps)
                                  ros::Time(), "base_gps"); //TODO: replace base_gps with a configurable value
     tf::Stamped<tf::Pose> gps_pose;
     
-    printf("%i\n",__LINE__);
     try
     {
       this->tf_->transformPose(base_frame_id_, ident, gps_pose);
@@ -892,41 +874,33 @@ AmclNode::gpsReceived(const geometry_msgs::PoseStampedConstPtr& gps)
       printf("Leaving gpsReceived\n");
       return;
     }
-    printf("%i\n",__LINE__);
 
     pf_vector_t gps_pose_v;
-    printf("%i\n",__LINE__);
     gps_pose_v.v[0] = gps_pose.getOrigin().x();
-    printf("%i\n",__LINE__);
     gps_pose_v.v[1] = gps_pose.getOrigin().y();
-    printf("%i\n",__LINE__);
     // laser mounting angle gets computed later -> set to 0 here!
     gps_pose_v.v[2] = 0;
-    printf("%i\n",__LINE__);
     //gps_vec_[gps_index]->SetGpsPose(gps_pose_v);
     gps_->SetGpsPose(gps_pose_v);
-    printf("%i\n",__LINE__);
     ROS_INFO("Received gps pose wrt robot: %.3f %.3f %.3f",
               gps_pose_v.v[0],
               gps_pose_v.v[1],
               gps_pose_v.v[2]);
-    printf("%i\n",__LINE__);
 
     frame_to_gps_[gps->header.frame_id] = gps_index;
     
-    printf("%i\n",__LINE__);
   } else {
     // we have the gps pose, retrieve laser index
     gps_index = frame_to_gps_[gps->header.frame_id];
   }
 
-  // Where was the robot when this scan was taken?
+  // Where was the robot when this gps measurement was taken?
   tf::Stamped<tf::Pose> odom_pose;
   pf_vector_t pose;
   if(!getOdomPose(odom_pose, pose.v[0], pose.v[1], pose.v[2],
                   gps->header.stamp, base_frame_id_))
   {
-    ROS_ERROR("Couldn't determine robot's pose associated with laser scan");
+    ROS_ERROR("Couldn't determine robot's pose associated with gps measurement");
     printf("Leaving gpsReceived\n");
     return;
   }
@@ -1008,20 +982,14 @@ AmclNode::gpsReceived(const geometry_msgs::PoseStampedConstPtr& gps)
   // If the robot has moved, update the filter
   if(gps_update_) //gps_update_[gps_index])
   {
-    printf("If 4\n");
-    AMCLGpsData gdata;
-    printf("%i\n",__LINE__);
+    AMCLGpsData gdata;;
     gdata.sensor = gps_; //gps_vec_[gps_index];
-    printf("%i\n",__LINE__);
     gdata.x = gps->pose.position.x;
     gdata.y = gps->pose.position.y;
-    printf("%i\n",__LINE__);
 
     //gps_vec_[gps_index]->UpdateSensor(pf_, (AMCLSensorData*)&gdata);
     AMCLSensorData* tempdata = &gdata;
-    printf("%i\n",__LINE__);
     gps_->UpdateSensor(pf_,tempdata);
-    printf("%i\n",__LINE__);
 
     //gps_update_[gps_index] = false;
     gps_update_ = false;
@@ -1037,7 +1005,7 @@ AmclNode::gpsReceived(const geometry_msgs::PoseStampedConstPtr& gps)
     }
 
     pf_sample_set_t* set = pf_->sets + pf_->current_set;
-    ROS_DEBUG("Num samples: %d\n", set->sample_count);
+    ROS_INFO("Num samples: %d\n", set->sample_count);
 
     // Publish the resulting cloud
     // TODO: set maximum rate for publishing
@@ -1076,7 +1044,7 @@ AmclNode::gpsReceived(const geometry_msgs::PoseStampedConstPtr& gps)
         ROS_ERROR("Couldn't get stats on cluster %d", hyp_count);
         break;
       }
-      ROS_INFO("Num Samples: %i, Num Clusters: %i",pf_->sets[pf_->current_set].sample_count,pf_->sets[pf_->current_set].cluster_count);
+      //ROS_INFO("Num Samples: %i, Num Clusters: %i",pf_->sets[pf_->current_set].sample_count,pf_->sets[pf_->current_set].cluster_count);
       hyps[hyp_count].weight = weight;
       hyps[hyp_count].pf_pose_mean = pose_mean;
       hyps[hyp_count].pf_pose_cov = pose_cov;

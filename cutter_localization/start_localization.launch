@@ -1,6 +1,6 @@
 <launch>
   <!-- Start the odometry -->
-  <include file="$(find cutter_localization)/odometry_encoders.launch" />
+  <include file="$(find cutter_localization)/launch/odometry_encoders.launch" />
 
   <!-- Start localization -->
   <!-- TODO: Replace the static transform publisher with the actual localization node -->

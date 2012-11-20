@@ -5,12 +5,6 @@
     <!-- Start the Stage simulator -->
     <node pkg="stage" type="stageros" name="stageros" args="$(find cutter_sim_stage)/worlds/cutter_amcl_1.world" respawn="false" />
 
-    <!-- Publish a static transform from /map to /odom (this will change later) -->
-    <!-- node pkg="tf" type="static_transform_publisher" name="localization" args="0 0 0 0 0 0 map odom 100"/ -->
-
-    <!-- Create the localization message that CWRUCutter planning/driving will use -->
-    <!-- node pkg="cutter_sim_stage" type="sim_localization.py" name="sim_localize"/ -->
-
     <!-- Simulate the GPS message -->
     <include file="$(find cutter_sim_stage)/launch/sim_gps.launch"/>
 </launch>
