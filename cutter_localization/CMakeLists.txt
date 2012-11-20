@@ -28,5 +28,10 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 #rosbuild_link_boost(${PROJECT_NAME} thread)
 #rosbuild_add_executable(example examples/example.cpp)
 rosbuild_add_executable(odometry src/cutter_odometry.cpp)
+
+rosbuild_add_boost_directories()
+rosbuild_add_executable(localization_evaluation src/localization_evaluation.cpp)
+rosbuild_link_boost(localization_evaluation signals)
+
 ####rosbuild_add_executable(localization_dgps src/localization_dgps.cpp)
 #target_link_libraries(example ${PROJECT_NAME})
