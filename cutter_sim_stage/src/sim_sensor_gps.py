@@ -51,6 +51,7 @@ def callback(data,pub):
     gps_msg = PoseStamped()
     
     # Set parameters
+    # TODO: get the parameters from the gps transform
     xoff = 0.6
     yoff = 0.0
     std = .05

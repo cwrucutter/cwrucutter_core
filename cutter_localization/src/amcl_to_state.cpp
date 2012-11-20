@@ -32,7 +32,7 @@
  *   - odom (nav_msgs/Odometry): Current odometry, used for velocity measurements
  *  
  * Publishes:
- *   - localization_err (cutter_msgs/StateEvaluaton): Current Error stats for the localization solution
+ *   - cwru/state (cutter_msgs/State): Current state
  *
  ********************************************************************************/
 
@@ -71,13 +71,13 @@ private:
     geometry_msgs::PoseStamped pose_out;
     try 
     {
-      // Transform the differential gps reading from the map frame to the base_gps frame
-      //   ... This will be the difference between differential gps and the estimated state
+      // Transform the odom reading from the odom frame to the map frame
+      //  ie, apply AMCL's localization adjustment
       pose_in.header = odom->header;
       pose_in.pose   = odom->pose.pose;
       tf_.transformPose(target_frame_, pose_in, pose_out);
       
-      // Populate the error message
+      // Populate the state message
       cutter_msgs::State state_msg;
       state_msg.header.stamp = pose_in.header.stamp;
       state_msg.header.frame_id = target_frame_;
