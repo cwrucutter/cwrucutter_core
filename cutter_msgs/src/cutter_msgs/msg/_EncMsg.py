@@ -6,14 +6,14 @@ import struct
 
 
 class EncMsg(genpy.Message):
-  _md5sum = "56e15b137f05b503f692a3beaa4e3f7a"
+  _md5sum = "febc810ab9cc360ca3f47fcee4f2ba71"
   _type = "cutter_msgs/EncMsg"
   _has_header = False #flag to mark the presence of a Header object
-  _full_text = """int32 right
-int32 left
+  _full_text = """int32 left
+int32 right
 
 """
-  __slots__ = ['right','left']
+  __slots__ = ['left','right']
   _slot_types = ['int32','int32']
 
   def __init__(self, *args, **kwds):
@@ -24,7 +24,7 @@ int32 left
     changes.  You cannot mix in-order arguments and keyword arguments.
 
     The available fields are:
-       right,left
+       left,right
 
     :param args: complete set of field values, in .msg order
     :param kwds: use keyword arguments corresponding to message field names
@@ -33,13 +33,13 @@ int32 left
     if args or kwds:
       super(EncMsg, self).__init__(*args, **kwds)
       #message fields cannot be None, assign default values for those that are
-      if self.right is None:
-        self.right = 0
       if self.left is None:
         self.left = 0
+      if self.right is None:
+        self.right = 0
     else:
-      self.right = 0
       self.left = 0
+      self.right = 0
 
   def _get_types(self):
     """
@@ -54,7 +54,7 @@ int32 left
     """
     try:
       _x = self
-      buff.write(_struct_2i.pack(_x.right, _x.left))
+      buff.write(_struct_2i.pack(_x.left, _x.right))
     except struct.error as se: self._check_types(se)
     except TypeError as te: self._check_types(te)
 
@@ -68,7 +68,7 @@ int32 left
       _x = self
       start = end
       end += 8
-      (_x.right, _x.left,) = _struct_2i.unpack(str[start:end])
+      (_x.left, _x.right,) = _struct_2i.unpack(str[start:end])
       return self
     except struct.error as e:
       raise genpy.DeserializationError(e) #most likely buffer underfill
@@ -82,7 +82,7 @@ int32 left
     """
     try:
       _x = self
-      buff.write(_struct_2i.pack(_x.right, _x.left))
+      buff.write(_struct_2i.pack(_x.left, _x.right))
     except struct.error as se: self._check_types(se)
     except TypeError as te: self._check_types(te)
 
@@ -97,7 +97,7 @@ int32 left
       _x = self
       start = end
       end += 8
-      (_x.right, _x.left,) = _struct_2i.unpack(str[start:end])
+      (_x.left, _x.right,) = _struct_2i.unpack(str[start:end])
       return self
     except struct.error as e:
       raise genpy.DeserializationError(e) #most likely buffer underfill
