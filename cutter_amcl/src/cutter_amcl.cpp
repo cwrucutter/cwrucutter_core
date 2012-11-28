@@ -258,17 +258,20 @@ AmclNode::AmclNode() :
         first_reconfigure_call_(true)
 {
   printf("Entering AmclNode\n");
+  printf("%i \n", __LINE__);
   boost::recursive_mutex::scoped_lock l(configuration_mutex_);
 
   // Grab params off the param server
   private_nh_.param("use_map_topic", use_map_topic_, false);
   private_nh_.param("first_map_only", first_map_only_, false);
+  printf("%i \n", __LINE__);
 
   double tmp;
   private_nh_.param("gui_publish_rate", tmp, -1.0);
   gui_publish_period = ros::Duration(1.0/tmp);
   private_nh_.param("save_pose_rate", tmp, 0.5);
   save_pose_period = ros::Duration(1.0/tmp);
+  printf("%i \n", __LINE__);
 
   private_nh_.param("min_particles", min_particles_, 100);
   private_nh_.param("max_particles", max_particles_, 5000);
@@ -279,6 +282,7 @@ AmclNode::AmclNode() :
   private_nh_.param("odom_alpha3", alpha3_, 0.2);
   private_nh_.param("odom_alpha4", alpha4_, 0.2);
   private_nh_.param("odom_alpha5", alpha5_, 0.2);
+  printf("%i \n", __LINE__);
 
   private_nh_.param("gps_sigma", sigma_gps_, 0.01);
   std::string tmp_model_type;
@@ -291,6 +295,7 @@ AmclNode::AmclNode() :
              tmp_model_type.c_str());
     gps_model_type_ = GPS_MODEL_LEVERARM;
   }
+  printf("%i \n", __LINE__);
 
   private_nh_.param("odom_model_type", tmp_model_type, std::string("diff"));
   if(tmp_model_type == "diff")
@@ -303,6 +308,7 @@ AmclNode::AmclNode() :
              tmp_model_type.c_str());
     odom_model_type_ = ODOM_MODEL_DIFF;
   }
+  printf("%i \n", __LINE__);
 
   private_nh_.param("update_min_d", d_thresh_, 0.1);
   private_nh_.param("update_min_a", a_thresh_, M_PI/6.0);
@@ -314,8 +320,10 @@ AmclNode::AmclNode() :
   private_nh_.param("transform_tolerance", tmp_tol, 0.1);
   private_nh_.param("recovery_alpha_slow", alpha_slow_, 0.001);
   private_nh_.param("recovery_alpha_fast", alpha_fast_, 0.1);
+  printf("%i \n", __LINE__);
 
   transform_tolerance_.fromSec(tmp_tol);
+  printf("%i \n", __LINE__);
 
   init_pose_[0] = 0.0;
   init_pose_[1] = 0.0;
@@ -355,6 +363,7 @@ AmclNode::AmclNode() :
     init_cov_[2] = tmp_pos;
   else
     ROS_WARN("ignoring NAN in initial covariance AA");
+  printf("%i \n", __LINE__);
 
   cloud_pub_interval.fromSec(1.0);
   tfb_ = new tf::TransformBroadcaster();
@@ -374,7 +383,9 @@ AmclNode::AmclNode() :
   //gps_filter_->registerCallback(boost::bind(&AmclNode::gpsReceived,
   //                                                 this, _1));
   
+  printf("%i \n", __LINE__);
   
+/*
 #if NEW_UNIFORM_SAMPLING
   // Index of free space
   free_space_indices.resize(0);
@@ -382,7 +393,8 @@ AmclNode::AmclNode() :
     for(int j = 0; j < map_->size_y; j++)
       if(map_->cells[MAP_INDEX(map_,i,j)].occ_state == -1)
         free_space_indices.push_back(std::make_pair(i,j));
-#endif
+#endif*/
+  printf("%i \n", __LINE__);
   // Create the particle filter
   pf_ = pf_alloc(min_particles_, max_particles_,
                  alpha_slow_, alpha_fast_,
@@ -391,6 +403,7 @@ AmclNode::AmclNode() :
   pf_->pop_err = pf_err_;
   pf_->pop_z = pf_z_;
 
+  printf("%i \n", __LINE__);
   // Initialize the filter
   pf_vector_t pf_init_pose_mean = pf_vector_zero();
   pf_init_pose_mean.v[0] = init_pose_[0];
@@ -403,6 +416,7 @@ AmclNode::AmclNode() :
   pf_init(pf_, pf_init_pose_mean, pf_init_pose_cov);
   pf_init_ = false;
   
+  printf("%i \n", __LINE__);
   
   // Instantiate the sensor objects
   // Odometry
@@ -424,6 +438,7 @@ AmclNode::AmclNode() :
   gps_sub_ = nh_.subscribe(gps_topic_,2,&AmclNode::gpsReceived, this);
   initial_pose_sub_ = nh_.subscribe("initialpose", 2, &AmclNode::initialPoseReceived, this);
   
+  printf("%i \n", __LINE__);
 /*
   if(use_map_topic_) {
     map_sub_ = nh_.subscribe("map", 1, &AmclNode::mapReceived, this);
@@ -435,6 +450,7 @@ AmclNode::AmclNode() :
   dsrv_ = new dynamic_reconfigure::Server<cutter_amcl::amclConfig>(ros::NodeHandle("~"));
   dynamic_reconfigure::Server<cutter_amcl::amclConfig>::CallbackType cb = boost::bind(&AmclNode::reconfigureCB, this, _1, _2);
   dsrv_->setCallback(cb);
+  printf("%i \n", __LINE__);
 
   // 10s timer to warn on lack of receipt of laser scans, #5209
   gps_check_interval_ = ros::Duration(10.0);
@@ -749,10 +765,12 @@ AmclNode::getOdomPose(tf::Stamped<tf::Pose>& odom_pose,
 {
   printf("Entering getOdomPose\n");
   // Get the robot's pose
+  ROS_INFO("Time Now: %f, Time Stamp: %f", ros::Time::now().toSec(), t.toSec());
   tf::Stamped<tf::Pose> ident (tf::Transform(tf::createIdentityQuaternion(),
                                            tf::Vector3(0,0,0)), t, f);
   try
   {
+    //this->tf_->waitForTransform(odom_frame_id_, f, t, ros::Duration(0.1));
     this->tf_->transformPose(odom_frame_id_, ident, odom_pose);
   }
   catch(tf::TransformException e)

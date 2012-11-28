@@ -150,6 +150,7 @@ bool CutterOdometry::sendOdometry()
   // Create a quaternion to store yaw
   geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(tht_);
   ros::Time current_time = ros::Time::now();
+  ros::Time future_time = current_time + ros::Duration(0.05);
 
   // Broadcast the odom->base_link transform
   geometry_msgs::TransformStamped odom_trans;
@@ -161,7 +162,9 @@ bool CutterOdometry::sendOdometry()
   odom_trans.transform.translation.y = y_;
   odom_trans.transform.translation.z = 0.0;
   odom_trans.transform.rotation = odom_quat;
-  odom_broadcaster_.sendTransform(odom_trans);
+  odom_broadcaster_.sendTransform(
+      tf::StampedTransform(tf::Transform(tf::createQuaternionFromYaw(tht_), tf::Vector3(x_, y_, 0.0)),
+      future_time, "odom", "base_link"));
   
   // Publish the Odometry Message
   nav_msgs::Odometry odom;
