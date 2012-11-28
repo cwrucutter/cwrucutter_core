@@ -1,0 +1,13 @@
+<!-- This file starts crio communication and the teleop node -->
+<launch>
+
+   <!-- Startup the crio -->
+   <include file="$(find cutter_bot_drivers)/start_crio.launch" />
+   
+   <!-- Startup the gps driver -->
+   <include file="$(find cutter_bot_drivers)/start_novatel.launch" />
+
+   <!-- Startup the odometry node --> 
+   <include file="$(find cutter_localization)/launch/odometry_encoders.launch" />
+
+</launch>
