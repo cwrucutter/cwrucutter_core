@@ -150,7 +150,7 @@ bool CutterOdometry::sendOdometry()
   // Create a quaternion to store yaw
   geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(tht_);
   ros::Time current_time = ros::Time::now();
-  ros::Time future_time = current_time + ros::Duration(0.05);
+  ros::Time future_time = current_time + ros::Duration(0.1);
 
   // Broadcast the odom->base_link transform
   geometry_msgs::TransformStamped odom_trans;
