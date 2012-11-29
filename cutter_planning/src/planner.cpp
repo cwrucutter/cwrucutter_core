@@ -51,29 +51,29 @@ bool CutterPlanner::getWayPointService(
 bool CutterPlanner::readWayPointsFromFile(std::string filename)
 {
   cutter_msgs::WayPoint tempWP;
-  tempWP.pose.position.x = 0.5;
-  tempWP.pose.position.y = -5.0;
+  tempWP.pose.position.x = 10;//0.5;
+  tempWP.pose.position.y = 10;//-5.0;
   tempWP.pose.orientation = tf::createQuaternionMsgFromYaw(0.0);
   tempWP.distanceTol = .1;
   tempWP.direction = false;
   path_.push_back(tempWP);
 
-  tempWP.pose.position.x = 0.5;
-  tempWP.pose.position.y = 5.0;
+  tempWP.pose.position.x = 10;//0.5;
+  tempWP.pose.position.y = 20;//5.0;
   tempWP.pose.orientation = tf::createQuaternionMsgFromYaw(0.0);
   tempWP.distanceTol = .1;
   tempWP.direction = false;
   path_.push_back(tempWP);
 
-  tempWP.pose.position.x = -0.5;
-  tempWP.pose.position.y = 5.0;
+  tempWP.pose.position.x = 0;//-0.5;
+  tempWP.pose.position.y = 20;//5.0;
   tempWP.pose.orientation = tf::createQuaternionMsgFromYaw(0.0);
   tempWP.distanceTol = .1;
   tempWP.direction = false;
   path_.push_back(tempWP);
 
-  tempWP.pose.position.x = -0.5;
-  tempWP.pose.position.y = -5.0;
+  tempWP.pose.position.x = 0;//;
+  tempWP.pose.position.y = 10;//-5.0;
   tempWP.pose.orientation = tf::createQuaternionMsgFromYaw(0.0);
   tempWP.distanceTol = .1;
   tempWP.direction = false;
