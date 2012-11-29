@@ -52,9 +52,9 @@ def callback(data,pub):
     
     # Set parameters
     # TODO: get the parameters from the gps transform
-    xoff = 0.6
+    xoff = -0.45
     yoff = 0.0
-    std = .05
+    std = .03
     rot = math.pi/2
 
     # Rotate the base pose

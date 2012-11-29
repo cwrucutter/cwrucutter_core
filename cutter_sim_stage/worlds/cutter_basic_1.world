@@ -19,7 +19,7 @@ define sick_lms291 ranger
 define cutter position
 (
   size [1 .6 .8]
-  origin [0.4 0 0 0]
+  origin [-0.4 0 0 0]
   gui_nose 1
   drive "diff"
   sick_lms291(pose [0.9 0.0 0 0.1])
