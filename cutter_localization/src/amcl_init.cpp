@@ -67,9 +67,9 @@ private:
     // Populate the initialization msg
     init_pose.header = pose->header;
     init_pose.pose.pose = pose->pose;
-    init_pose.pose.covariance[0] = .25;
-    init_pose.pose.covariance[7] = .25;
-    init_pose.pose.covariance[35] = .069;
+    init_pose.pose.covariance[0] = .5;
+    init_pose.pose.covariance[7] = .5;
+    init_pose.pose.covariance[35] = .1;
     
     // Publish the message
     if (init_)

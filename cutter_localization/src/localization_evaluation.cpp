@@ -156,10 +156,10 @@ private:
       printf("gps_pose in the base_gps frame?? (x:%f y:%f z:%f)\n", 
              pose_err.pose.position.x,
              pose_err.pose.position.y,
-             pose_err.pose.position.z);
+             pose_err.pose.position.z);*/
       printf("Magnitude error sqrt(x^2+y^2): %f\n", mag_err);
       stat_.Push(mag_err);
-      printf("Mean: %f, Variance: %f, Std Dev: %f\n", stat_.Mean(), stat_.Variance(), stat_.StandardDeviation());*/
+      printf("Mean: %f, Variance: %f, Std Dev: %f\n", stat_.Mean(), stat_.Variance(), stat_.StandardDeviation());
       
       // Populate the error message
       cutter_msgs::StateEvaluation err_msg;
