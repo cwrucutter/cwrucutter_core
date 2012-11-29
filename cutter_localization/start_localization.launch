@@ -1,9 +1,10 @@
 <launch>
-  <!-- Start the odometry -->
-  <include file="$(find cutter_localization)/launch/odometry_encoders.launch" />
+  <!-- Start amcl localization (edit parameters in the attached launch file if necessary)-->
+  <include file="$(find cutter_amcl)/start_amcl.launch" />
 
-  <!-- Start localization -->
-  <!-- TODO: Replace the static transform publisher with the actual localization node -->
-  <node pkg="tf" type="static_transform_publisher" name="localization" args="0 0 0 0 0 0 map odom 100" />
+  <!-- Start amcl-to-state publisher -->
+  <node pkg="cutter_localization" type="amcl_to_state" name="amcl_to_state" />
 
+  <!-- Localization Evaluation node -->
+  <node pkg="cutter_localization" type="localization_evaluation" name="localization_evaluation" />
 </launch>
