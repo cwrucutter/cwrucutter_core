@@ -42,6 +42,7 @@
 // Messages that I need
 #include "sensor_msgs/LaserScan.h"
 #include "geometry_msgs/PoseWithCovarianceStamped.h"
+#include "geometry_msgs/PoseStamped.h"
 #include "geometry_msgs/PoseArray.h"
 #include "geometry_msgs/Pose.h"
 #include "nav_msgs/GetMap.h"
@@ -152,6 +153,7 @@ class AmclNode
     ros::Duration save_pose_period;
 
     geometry_msgs::PoseWithCovarianceStamped last_published_pose;
+    geometry_msgs::PoseStamped last_gps_pose_;
 
     map_t* map_;
     char* mapdata;
@@ -399,7 +401,7 @@ AmclNode::AmclNode() :
   pf_ = pf_alloc(min_particles_, max_particles_,
                  alpha_slow_, alpha_fast_,
                  (pf_init_model_fn_t)AmclNode::uniformPoseGenerator,
-                 (void *)map_);
+                 (void *)&last_gps_pose_);
   pf_->pop_err = pf_err_;
   pf_->pop_z = pf_z_;
 
@@ -520,7 +522,7 @@ void AmclNode::reconfigureCB(cutter_amcl::amclConfig &config, uint32_t level)
   pf_ = pf_alloc(min_particles_, max_particles_,
                  alpha_slow_, alpha_fast_,
                  (pf_init_model_fn_t)AmclNode::uniformPoseGenerator,
-                 (void *)map_);
+                 (void *)&last_gps_pose_);
   pf_err_ = config.kld_err; 
   pf_z_ = config.kld_z; 
   pf_->pop_err = pf_err_;
@@ -793,44 +795,36 @@ AmclNode::getOdomPose(tf::Stamped<tf::Pose>& odom_pose,
 pf_vector_t
 AmclNode::uniformPoseGenerator(void* arg)
 {
+  // Sample uniformly around the last gps Pose!
   printf("Entering uniformPoseGenerator\n");
-  map_t* map = (map_t*)arg;
-/*#if NEW_UNIFORM_SAMPLING
-  unsigned int rand_index = drand48() * free_space_indices.size();
-  std::pair<int,int> free_point = free_space_indices[rand_index];
+  geometry_msgs::PoseStamped* gps = (geometry_msgs::PoseStamped*)arg;
+  
+  double min_range, max_range, r, tht;
+  min_range = 0.3;
+  max_range = 0.6;
+  
   pf_vector_t p;
-  p.v[0] = MAP_WXGX(map, free_point.first);
-  p.v[1] = MAP_WYGY(map, free_point.second);
-  p.v[2] = drand48() * 2 * M_PI - M_PI;
-#else*/
+  r = drand48() * (max_range-min_range) + min_range;
+  tht = drand48() * (2*M_PI);
+  p.v[0] = gps->pose.position.x + r*cos(tht);
+  p.v[1] = gps->pose.position.y + r*sin(tht);
+  p.v[2] = tht;
+  
+  /*
   double min_x, max_x, min_y, max_y;
-/*
-  min_x = (map->size_x * map->scale)/2.0 - map->origin_x;
-  max_x = (map->size_x * map->scale)/2.0 + map->origin_x;
-  min_y = (map->size_y * map->scale)/2.0 - map->origin_y;
-  max_y = (map->size_y * map->scale)/2.0 + map->origin_y;*/
   min_x = -10; 
   min_y = -10;
   max_x = 10;
   max_y = 10;
 
+
   pf_vector_t p;
 
   ROS_INFO("Generating new uniform sample");
-//  for(;;)
-//  {
-    p.v[0] = min_x + drand48() * (max_x - min_x);
-    p.v[1] = min_y + drand48() * (max_y - min_y);
-    p.v[2] = drand48() * 2 * M_PI - M_PI;
-    // Check that it's a free cell
-//    int i,j;
-//    i = MAP_GXWX(map, p.v[0]);
-//    j = MAP_GYWY(map, p.v[1]);
-//    if(MAP_VALID(map,i,j) && (map->cells[MAP_INDEX(map,i,j)].occ_state == -1))
-//      break;
-//  }
-//#endif
-  printf("Leaving uniformPoseGenerator\n");
+  p.v[0] = min_x + drand48() * (max_x - min_x);
+  p.v[1] = min_y + drand48() * (max_y - min_y);
+  p.v[2] = drand48() * 2 * M_PI - M_PI;*/
+  printf("Leaving uniformPoseGenerator\n"); 
   return p;
 }
 
@@ -846,7 +840,7 @@ AmclNode::globalLocalizationCallback(std_srvs::Empty::Request& req,
   boost::recursive_mutex::scoped_lock gl(configuration_mutex_);
   ROS_INFO("Initializing with uniform distribution");
   pf_init_model(pf_, (pf_init_model_fn_t)AmclNode::uniformPoseGenerator,
-                (void *)map_);
+                (void *)&last_gps_pose_);
   ROS_INFO("Global initialisation done!");
   pf_init_ = false;
   printf("Leaving globalLocalizationCallback\n");
@@ -860,6 +854,8 @@ AmclNode::gpsReceived(const geometry_msgs::PoseStampedConstPtr& gps)
   
   printf("Entering gpsReceived\n");
   last_gps_received_ts_ = ros::Time::now();
+  last_gps_pose_ = *gps;
+  
   /*if( map_ == NULL ) {
     printf("Map == null, Leaving gpsReceived\n");
     return;

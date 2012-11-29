@@ -40,6 +40,7 @@
 #include "message_filters/subscriber.h"
 #include "geometry_msgs/PoseWithCovarianceStamped.h"
 #include "geometry_msgs/PoseStamped.h"
+#include "tf/tf.h"
 
 class GpsInitialize
 {
@@ -67,6 +68,7 @@ private:
     // Populate the initialization msg
     init_pose.header = pose->header;
     init_pose.pose.pose = pose->pose;
+    init_pose.pose.pose.orientation = tf::createQuaternionMsgFromYaw(tf::getYaw(pose->pose.orientation)+1);
     init_pose.pose.covariance[0] = .5;
     init_pose.pose.covariance[7] = .5;
     init_pose.pose.covariance[35] = .1;
