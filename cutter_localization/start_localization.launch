@@ -5,6 +5,6 @@
   <!-- Start amcl-to-state publisher -->
   <node pkg="cutter_localization" type="amcl_to_state" name="amcl_to_state" />
 
-  <!-- Localization Evaluation node -->
-  <node pkg="cutter_localization" type="localization_evaluation" name="localization_evaluation" />
+  <!-- Localization Evaluation node, restart if it dies -->
+  <node pkg="cutter_localization" type="localization_evaluation" name="localization_evaluation" respawn="true"/>
 </launch>

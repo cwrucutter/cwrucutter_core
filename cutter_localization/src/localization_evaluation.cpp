@@ -163,8 +163,8 @@ private:
       
       // Populate the error message
       cutter_msgs::StateEvaluation err_msg;
-      err_msg.x_err = pose_err.pose.position.x*pose_err.pose.position.x;
-      err_msg.y_err = pose_err.pose.position.y*pose_err.pose.position.y;
+      err_msg.x_err = sqrt(pose_err.pose.position.x*pose_err.pose.position.x);
+      err_msg.y_err = sqrt(pose_err.pose.position.y*pose_err.pose.position.y);
       err_msg.tht_err = 0.0; // Currently dont know?? hmmm...
       err_msg.xy_err = mag_err;
       err_msg.xy_err_mean = stat_.Mean();

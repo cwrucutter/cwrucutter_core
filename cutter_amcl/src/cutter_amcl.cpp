@@ -767,12 +767,12 @@ AmclNode::getOdomPose(tf::Stamped<tf::Pose>& odom_pose,
 {
   printf("Entering getOdomPose\n");
   // Get the robot's pose
-  ROS_INFO("Time Now: %f, Time Stamp: %f", ros::Time::now().toSec(), t.toSec());
+  ROS_INFO("Time Now: %f, Gps Time Stamp: %f", ros::Time::now().toSec(), t.toSec());
   tf::Stamped<tf::Pose> ident (tf::Transform(tf::createIdentityQuaternion(),
                                            tf::Vector3(0,0,0)), t, f);
   try
   {
-    //this->tf_->waitForTransform(odom_frame_id_, f, t, ros::Duration(0.1));
+    this->tf_->waitForTransform(odom_frame_id_, f, t, ros::Duration(0.1));
     this->tf_->transformPose(odom_frame_id_, ident, odom_pose);
   }
   catch(tf::TransformException e)

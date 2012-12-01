@@ -164,7 +164,7 @@ bool CutterOdometry::sendOdometry()
   odom_trans.transform.rotation = odom_quat;
   odom_broadcaster_.sendTransform(
       tf::StampedTransform(tf::Transform(tf::createQuaternionFromYaw(tht_), tf::Vector3(x_, y_, 0.0)),
-      future_time, "odom", "base_link"));
+      current_time, "odom", "base_link"));
   
   // Publish the Odometry Message
   nav_msgs::Odometry odom;
@@ -212,7 +212,7 @@ int main(int argc, char** argv)
   if (!odometry.lookupParams())
     ROS_ERROR("Parameters not found");
 
-  ros::Rate loop_rate(10.0);
+  ros::Rate loop_rate(25.0);
   while (ros::ok())
   {
     ros::spinOnce();
