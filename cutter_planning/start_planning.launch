@@ -1,0 +1,4 @@
+<launch>
+  <node pkg="cutter_planning" type="planner" name="planner" output="screen" />
+
+</launch>

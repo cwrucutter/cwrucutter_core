@@ -4,7 +4,9 @@
 #include "cutter_msgs/GetWayPoints.h"
 #include <tf/tf.h>
 #include <string>
-
+#include <iostream>
+#include <fstream>
+using namespace std;
 
 class CutterPlanner
 {
@@ -14,6 +16,7 @@ class CutterPlanner
   private:
     bool getWayPointService(cutter_msgs::GetWayPoints::Request &req, cutter_msgs::GetWayPoints::Response &res);
     bool readWayPointsFromFile(std::string filename);
+    void parseStringFormat(std::string line, cutter_msgs::WayPoint &tempWP);
 
     ros::NodeHandle nh_;
     ros::ServiceServer wp_srv_;
@@ -47,38 +50,39 @@ bool CutterPlanner::getWayPointService(
   return true;
 }
 
-
+void CutterPlanner::parseStringFormat(std::string line, cutter_msgs::WayPoint &tempWP){
+      int lastcomma;
+      //ROS_INFO("Waypoint coord 1: %f",strtod(line.substr(line.find_first_of("(")+1,line.find_first_of(",")-1).c_str(),NULL));
+      tempWP.pose.position.x = strtod(line.substr(line.find_first_of("(")+1,line.find_first_of(",")-1).c_str(),NULL);
+      ROS_INFO("Waypoint coord 1: %f",strtod(line.substr(line.find_first_of("(")+1,line.find_first_of(",")-1).c_str(),NULL));
+      tempWP.pose.position.y = strtod(line.substr(line.find_first_of(",")+1,line.find_first_of(",",line.find_first_of(",")+1)-1).c_str(), NULL);
+      lastcomma = line.find_first_of(",",line.find_first_of(",")+1)+1;
+      tempWP.pose.orientation = tf::createQuaternionMsgFromYaw(strtod(line.substr(lastcomma, line.find_first_of(",", lastcomma)-lastcomma).c_str(), NULL));
+      lastcomma = line.find_first_of(",",lastcomma + 1)+1;
+      tempWP.distanceTol = strtod(line.substr(lastcomma, line.find_first_of(",", lastcomma)-lastcomma).c_str(), NULL);
+      tempWP.direction = (strtod(line.substr(line.find_first_of(")")-1, 1).c_str(), NULL) == 1);
+}
 bool CutterPlanner::readWayPointsFromFile(std::string filename)
-{
+{//Begin experimental code
   cutter_msgs::WayPoint tempWP;
-  tempWP.pose.position.x = 0.5;
-  tempWP.pose.position.y = -5.0;
-  tempWP.pose.orientation = tf::createQuaternionMsgFromYaw(0.0);
-  tempWP.distanceTol = .1;
-  tempWP.direction = false;
-  path_.push_back(tempWP);
-
-  tempWP.pose.position.x = 0.5;
-  tempWP.pose.position.y = 5.0;
-  tempWP.pose.orientation = tf::createQuaternionMsgFromYaw(0.0);
-  tempWP.distanceTol = .1;
-  tempWP.direction = false;
-  path_.push_back(tempWP);
-
-  tempWP.pose.position.x = -0.5;
-  tempWP.pose.position.y = 5.0;
-  tempWP.pose.orientation = tf::createQuaternionMsgFromYaw(0.0);
-  tempWP.distanceTol = .1;
-  tempWP.direction = false;
-  path_.push_back(tempWP);
-
-  tempWP.pose.position.x = -0.5;
-  tempWP.pose.position.y = -5.0;
-  tempWP.pose.orientation = tf::createQuaternionMsgFromYaw(0.0);
-  tempWP.distanceTol = .1;
-  tempWP.direction = false;
-  path_.push_back(tempWP);
-
+  const char * name = filename.c_str();
+  std::fstream points_list;
+  points_list.open(name);
+  if(!(points_list.is_open())){//Check if the file exists.
+      ROS_INFO("Could not open waypoint file %s.",name);
+      return false;
+  }
+  std::string line;
+  vector<string> nums;
+  while (true){
+      getline(points_list,line);//Read in a line (i.e. a waypoint)
+      if(points_list.eof()){
+        break;//If we are out of waypoints, end the loop.
+      }//For each waypoint...
+      CutterPlanner::parseStringFormat( line, tempWP);//Parse the waypoint's string-based format into usable numbers.
+      path_.push_back(tempWP);
+  }
+  points_list.close();
   totalPoints_ = path_.size();
   return true;
 }
@@ -90,7 +94,7 @@ CutterPlanner::CutterPlanner()
   currentPoint_ = 0;
 
 
-  readWayPointsFromFile("yomama");
+  readWayPointsFromFile("/home/mower/fuerte_workspace/cwrucutter_core/cutter_planning/src/demopoints.txt");
 
   ROS_INFO("Advertising service");
   wp_srv_ = nh_.advertiseService("get_waypoint", &CutterPlanner::getWayPointService, this );
