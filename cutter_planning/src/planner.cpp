@@ -94,7 +94,7 @@ CutterPlanner::CutterPlanner()
   currentPoint_ = 0;
 
 
-  readWayPointsFromFile("/home/mower/fuerte_workspace/cwrucutter_core/cutter_planning/src/demopoints.txt");
+  readWayPointsFromFile("/home/cutty/dev/cwrucutter/cwrucutter_core/cutter_planning/src/demopoints.txt");
 
   ROS_INFO("Advertising service");
   wp_srv_ = nh_.advertiseService("get_waypoint", &CutterPlanner::getWayPointService, this );
