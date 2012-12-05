@@ -6,6 +6,8 @@
 #include <string>
 #include <iostream>
 #include <fstream>
+#include <ros/package.h>
+#include <ros/console.h>
 using namespace std;
 
 class CutterPlanner
@@ -54,7 +56,7 @@ void CutterPlanner::parseStringFormat(std::string line, cutter_msgs::WayPoint &t
       int lastcomma;
       //ROS_INFO("Waypoint coord 1: %f",strtod(line.substr(line.find_first_of("(")+1,line.find_first_of(",")-1).c_str(),NULL));
       tempWP.pose.position.x = strtod(line.substr(line.find_first_of("(")+1,line.find_first_of(",")-1).c_str(),NULL);
-      ROS_INFO("Waypoint coord 1: %f",strtod(line.substr(line.find_first_of("(")+1,line.find_first_of(",")-1).c_str(),NULL));
+      //ROS_INFO("Waypoint coord 1: %f",strtod(line.substr(line.find_first_of("(")+1,line.find_first_of(",")-1).c_str(),NULL));
       tempWP.pose.position.y = strtod(line.substr(line.find_first_of(",")+1,line.find_first_of(",",line.find_first_of(",")+1)-1).c_str(), NULL);
       lastcomma = line.find_first_of(",",line.find_first_of(",")+1)+1;
       tempWP.pose.orientation = tf::createQuaternionMsgFromYaw(strtod(line.substr(lastcomma, line.find_first_of(",", lastcomma)-lastcomma).c_str(), NULL));
@@ -63,7 +65,8 @@ void CutterPlanner::parseStringFormat(std::string line, cutter_msgs::WayPoint &t
       tempWP.direction = (strtod(line.substr(line.find_first_of(")")-1, 1).c_str(), NULL) == 1);
 }
 bool CutterPlanner::readWayPointsFromFile(std::string filename)
-{//Begin experimental code
+{
+ROS_INFO("Got path %s", filename.c_str());
   cutter_msgs::WayPoint tempWP;
   const char * name = filename.c_str();
   std::fstream points_list;
@@ -92,9 +95,13 @@ bool CutterPlanner::readWayPointsFromFile(std::string filename)
 CutterPlanner::CutterPlanner()
 {
   currentPoint_ = 0;
+  ros::NodeHandle nh;
+  std:string file;
+  nh.getParam("file", file);
+  ROS_INFO("Got file %s", file.c_str());
+  std::string path = ros::package::getPath("cutter_planning");
 
-
-  readWayPointsFromFile("/home/cutty/dev/cwrucutter/cwrucutter_core/cutter_planning/src/demopoints.txt");
+  readWayPointsFromFile(path + "/src/" + file);
 
   ROS_INFO("Advertising service");
   wp_srv_ = nh_.advertiseService("get_waypoint", &CutterPlanner::getWayPointService, this );

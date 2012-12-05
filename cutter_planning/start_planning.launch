@@ -1,4 +1,5 @@
 <launch>
   <node pkg="cutter_planning" type="planner" name="planner" output="screen" />
+  <param name="file" type="string" value="demopoints.txt"/>
 
 </launch>
