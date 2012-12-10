@@ -51,12 +51,15 @@
 #include <tf/tf.h>
 #include <tf/transform_broadcaster.h>
 
+#define LOOP_RATE 25 //Hz
+
 class CutterOdometry
 {
   public:
     CutterOdometry();
     bool lookupParams();
     bool sendOdometry();
+    double getLoopRate() {return loop_rate_;}
   
   private:
     void encCountCallback(const cutter_msgs::EncMsg::ConstPtr& enc);    
@@ -70,6 +73,9 @@ class CutterOdometry
     double x_;
     double y_;
     double tht_;
+
+    double loop_rate_;
+    double dt_;
     
     int enc_left_;
     int enc_right_;
@@ -84,7 +90,7 @@ class CutterOdometry
 };
 
 CutterOdometry::CutterOdometry():
-  track_(0.67), ticks_per_m_left_(20000), ticks_per_m_right_(20000)
+  track_(0.67), ticks_per_m_left_(20000), ticks_per_m_right_(20000), loop_rate_(25)
 {
   first_call_ = 1;
 
@@ -95,6 +101,7 @@ CutterOdometry::CutterOdometry():
   x_   = 0;
   y_   = 0;
   tht_ = 0;
+  dt_  = loop_rate_;
 
   odom_pub_ = node_.advertise<nav_msgs::Odometry>("odom",1);
   enc_sub_  = node_.subscribe<cutter_msgs::EncMsg>("cwru/enc_count",1,&CutterOdometry::encCountCallback,this);
@@ -106,12 +113,11 @@ bool CutterOdometry::sendOdometry()
   
   double start = ros::Time::now().toSec();
 
-  double dT  = .10;
   double Dr, Dl, Vr, Vl;
   Dr = double(enc_right_ - enc_right_old_) / ticks_per_m_right_;
   Dl = double(enc_left_  - enc_left_old_ ) / ticks_per_m_left_;
-  Vr = Dr / dT;
-  Vl = Dl / dT;
+  Vr = Dr / dt_;
+  Vl = Dl / dt_;
 
   double diff = Vr - Vl;
   double sum  = Vr + Vl;
@@ -124,21 +130,22 @@ bool CutterOdometry::sendOdometry()
   else if (diff < .0000001 && diff > -.0000001)
   {
     // New x,y. Theta stays the same
-    xnew = x_ + sum/2 * cos(tht_)*dT;
-    ynew = y_ + sum/2 * sin(tht_)*dT;
+    xnew = x_ + sum/2 * cos(tht_)*dt_;
+    ynew = y_ + sum/2 * sin(tht_)*dt_;
   }
   else
   {
     // New x,y,theta
-    xnew = x_ + track_ * sum/(2*diff) * (sin(diff*dT/track_+tht_) - sin(tht_));
-    ynew = y_ - track_ * sum/(2*diff) * (cos(diff*dT/track_+tht_) - cos(tht_));
-    thtn = angles::normalize_angle(tht_ + diff/track_*dT);
+    xnew = x_ + track_ * sum/(2*diff) * (sin(diff*dt_/track_+tht_) - sin(tht_));
+    ynew = y_ - track_ * sum/(2*diff) * (cos(diff*dt_/track_+tht_) - cos(tht_));
+    thtn = angles::normalize_angle(tht_ + diff/track_*dt_);
   }  
 
   double end = ros::Time::now().toSec();
   ROS_INFO("Encoders: Dr: %f Dl: %f x_: %f y_: %f tht_: %f",Dr,Dl,x_,y_,tht_);
   ROS_INFO("          xnew: %f ynew: %f thtn: %f duration: %f",xnew,ynew,thtn,end-start);
   ROS_INFO("          Vr: %f Vl: %f", Vr, Vl);
+  ROS_INFO("          Loop_rate: %f, DT: %f", loop_rate_, dt_);
   
   // Store Values
   x_   = xnew;
@@ -184,9 +191,15 @@ bool CutterOdometry::sendOdometry()
 
 bool CutterOdometry::lookupParams()
 {
-  return ros::param::get("~track", track_)
-      && ros::param::get("~tpm_left",ticks_per_m_left_)
-      && ros::param::get("~tpm_right",ticks_per_m_right_);
+  bool rval = ros::param::get("~track", track_)
+           && ros::param::get("~tpm_left",ticks_per_m_left_)
+           && ros::param::get("~tpm_right",ticks_per_m_right_)
+           && ros::param::get("~loop_rate",loop_rate_);
+  if (rval)
+  {
+    dt_ = 1/loop_rate_;
+  }
+  return rval;
 }
 
 void CutterOdometry::encCountCallback(const cutter_msgs::EncMsg::ConstPtr& enc)
@@ -212,7 +225,7 @@ int main(int argc, char** argv)
   if (!odometry.lookupParams())
     ROS_ERROR("Parameters not found");
 
-  ros::Rate loop_rate(25.0);
+  ros::Rate loop_rate(odometry.getLoopRate());
   while (ros::ok())
   {
     ros::spinOnce();
