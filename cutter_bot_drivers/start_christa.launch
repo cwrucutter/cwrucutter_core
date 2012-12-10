@@ -1,0 +1,12 @@
+<launch>
+  <!-- Launch the Novatel GPS Driver node --> 
+  <node pkg="christa_imu_driver" type="christa_imu_driver.py" name="driver_christa" output="screen">
+    <param name="port" value="/dev/ttyUSB2" type="string"/>
+    <param name="baud" value="115200" type="int"/>
+  </node>
+
+  <!-- Publish the static transform from base_link to gps -->
+  <node pkg="tf" type="static_transform_publisher" name="tf_publisher_gps" args="-.15 0 0 0 0 0 base_link base_christa 100"/>
+  
+  <!-- TODO: Create a node that converts the Imu raw data into useable accelerations/ angular rates?? -->
+</launch>
