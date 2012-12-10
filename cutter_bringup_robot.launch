@@ -7,6 +7,9 @@
    <!-- Startup the gps driver -->
    <include file="$(find cutter_bot_drivers)/start_novatel.launch" />
 
+   <!-- Startup the Christa IMU driver -->
+   <include file="$(find cutter_bot_drivers)/start_christa.launch" />
+
    <!-- Startup the odometry node --> 
    <include file="$(find cutter_localization)/launch/odometry_encoders.launch" />
 
