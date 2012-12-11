@@ -3,6 +3,7 @@ define block model
   size [0.5 0.5 2]
   gui_nose 0
   laser_return 1
+  obstacle_return 0
 )
 
 define sick_lms291 ranger
@@ -85,7 +86,7 @@ define snowfield model
   gui_outline 0
   gripper_return 0
   fiducial_return 0
-  laser_return 0
+  laser_return 1
   obstacle_return 0
 )
 

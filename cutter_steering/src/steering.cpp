@@ -41,7 +41,7 @@ class CutterSteering
     void wayPointCB(const cutter_msgs::WayPoint &wayPoint);
   
     double euclideanDistance(geometry_msgs::Point p, geometry_msgs::Point q);
-    double CutterSteering::distToLine(double a1x, double a1y, geometry_msgs::Point, geometry_msgs::Point)
+    double distToLine(double a1x, double a1y, geometry_msgs::Point, geometry_msgs::Point);
     double profile(double vw, double last_vw, double max_vw, double a);
     bool publishVW(double v, double w);
 
@@ -223,9 +223,9 @@ double CutterSteering::distToLine(double a1x, double a1y, geometry_msgs::Point t
   double avecy = target.y - a1y;
   double bvecx = robot.x- a1x;
   double bvecy = robot.y - a1y;
-  double anorm = sqrt(pow(avecx, 2) + pow(avecy, 2) );
+  double anorm = sqrt(pow(avecx, 2) + pow(avecy, 2) );//Square-root distance formula.
   if(anorm == 0.0) return 0.0;
-  double lnorm = (avecx*bvecx + avecy*bvecy)/anorm;
+  double lnorm = (avecx*bvecx + avecy*bvecy)/anorm;//Dot-product divided by norm
   double ahatx = avecx/anorm;
   double ahaty = avecy/anorm;
   double lx = lnorm * ahatx;
@@ -351,7 +351,7 @@ void CutterSteering::steer()
       }
       else
       {
-	double c = CutterSteering::distToLine(initialX, initialY, target_waypoint_.pose, map_pose_.position);
+	double c = CutterSteering::distToLine(initialX, initialY, target_waypoint_.pose.position, map_pose_.position);
         ROS_INFO("c = %f", c);
         v = targetDistance*K_v_proportional_;
 	w = K_wc_proportional_ * c - K_wth_proportional_ * thetaError;

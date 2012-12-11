@@ -3,6 +3,7 @@ define block model
   size [0.5 0.5 2]
   gui_nose 0
   laser_return 1
+  obstacle_return 0
 )
 
 define sick_lms291 ranger
@@ -22,7 +23,7 @@ define cutter position
   origin [-0.4 0 0 0]
   gui_nose 1
   drive "diff"
-  sick_lms291(pose [0.9 0.0 0 0.1])
+  sick_lms291(pose [0.9 0.0 0 0 -90 0])
   #Next two lines make the stage simulation return the true global position
   #TODO: Remove in the future when we have other sensors simulated...
   #      But for now, we can use assume true localization in order to get 
@@ -85,7 +86,7 @@ define snowfield model
   gui_outline 0
   gripper_return 0
   fiducial_return 0
-  laser_return 0
+  laser_return 1
   obstacle_return 0
 )
 

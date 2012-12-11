@@ -62,6 +62,7 @@ void CutterPlanner::parseStringFormat(std::string line, cutter_msgs::WayPoint &t
       tempWP.pose.orientation = tf::createQuaternionMsgFromYaw(strtod(line.substr(lastcomma, line.find_first_of(",", lastcomma)-lastcomma).c_str(), NULL));
       lastcomma = line.find_first_of(",",lastcomma + 1)+1;
       tempWP.distanceTol = strtod(line.substr(lastcomma, line.find_first_of(",", lastcomma)-lastcomma).c_str(), NULL);
+      ROS_INFO("WAYPOINT DTOL VALUE IS %f", tempWP.distanceTol);
       tempWP.direction = (strtod(line.substr(line.find_first_of(")")-1, 1).c_str(), NULL) == 1);
 }
 bool CutterPlanner::readWayPointsFromFile(std::string filename)
