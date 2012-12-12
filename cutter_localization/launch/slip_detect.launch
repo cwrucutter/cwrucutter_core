@@ -1,0 +1,12 @@
+<launch>
+  <node pkg="cutter_localization" type="slip_detect" name="slip_detector" output="screen">
+    <param name="odom_var_v" value=".05" type="double"/>
+    <param name="odom_var_w" value=".05" type="double"/>
+    <param name="imu_var_a" value=".3" type="double"/>
+    <param name="imu_var_w" value=".3" type="double"/>
+    <param name="proc_var_v" value=".05" type="double"/>
+    <param name="proc_var_w" value=".05" type="double"/>
+    <param name="proc_var_a" value=".1" type="double"/>
+    <param name="proc_var_wdot" value=".1" type="double"/>
+  </node>
+</launch>
