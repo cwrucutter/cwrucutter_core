@@ -8,3 +8,7 @@ float64 innov_v
 float64 innov_w
 float64 innov_bound_v
 float64 innov_bound_w
+float64 innov_imu_a
+float64 innov_imu_w
+float64 innov_bound_imu_a
+float64 innov_bound_imu_w

@@ -130,15 +130,14 @@ private:
   // Store odom and imu values from callbacks
   nav_msgs::Odometry last_odom_;
   sensor_msgs::Imu   last_imu_;
-  /*double odom_v_;
-  double odom_w_;
-  double imu_w_;
-  double imu_x_;
-  double imu_y_;*/
   bool imu_new_;
   bool odom_new_;
   
-  // Initialization parameters
+  // IMU Initialization
+  bool initialized_;
+  int initialized_cnt_;
+  
+  // Kalman Filter parameters
   double odom_var_v_;
   double odom_var_w_;
   double imu_var_a_;
@@ -170,6 +169,8 @@ private:
 SlipDetect::SlipDetect():
   state_(4,0), cov_(16,0)
 {
+  initialized_cnt_ = 0;
+  initialized_ = false;
   odom_new_ = false;
   imu_new_  = false;
   odom_sub_ = nh_.subscribe<nav_msgs::Odometry>("odom",10,&SlipDetect::odomCallback,this);
@@ -207,15 +208,18 @@ void SlipDetect::filter()
   odom_w = last_odom_.twist.twist.angular.z;
   imu_x  = last_imu_.linear_acceleration.x;
   imu_y  = last_imu_.linear_acceleration.y;
-  imu_w  = last_imu_.angular_velocity.z;
+  imu_w  = last_imu_.angular_velocity.z * M_PI / 180;
   
   double x_accel, y_accel;
   x_accel = imu_x - imu_stat_x_.Mean();
   y_accel = imu_y - imu_stat_y_.Mean();
   
-  double cov_v, cov_w, odom_v_err, odom_w_err = 0;
+  double odom_cov_v, odom_cov_w, odom_v_err, odom_w_err = 0;
+  double imu_cov_a,  imu_cov_w,  imu_a_err,  imu_w_err = 0;
+  
+  cutter_msgs::Testing test;
 
-  if (imu_new_)
+  if (imu_new_ && !initialized_)
   {
     if (fabs(odom_v) < .001 && fabs(odom_w) < .001)
     {
@@ -227,6 +231,9 @@ void SlipDetect::filter()
       ROS_INFO("Imu Y: %f, Y average: %f, Stddev: %f, Y-avg: %f", 
                     imu_y,  imu_stat_y_.Mean(), imu_stat_y_.StandardDeviation(), imu_y-imu_stat_y_.Mean());
       ROS_INFO("Odom V: %f, Odom W: %f, fabs(odomv): %f, fabs(odomw): %f", odom_v, odom_w, fabs(odom_v), fabs(odom_w));
+      if (initialized_cnt_++ > 100)
+        initialized_ = true;
+      ROS_INFO("Count: %i", initialized_cnt_);
     }
     else
     {
@@ -236,15 +243,19 @@ void SlipDetect::filter()
     
   } 
   
-  if (odom_new_)
+  bool no_update = true;
+  if (odom_new_ && imu_new_)
   {
-    if (fabs(odom_v) < .001 && fabs(odom_w) < .001)
+   /* if (fabs(odom_v) < .001 && fabs(odom_w) < .001)
     {
       // Currently do nothing with odometry if we're not moving??
       ROS_INFO("odom: No motion");
     }
     else
+    {*/
+    if (initialized_)
     {
+      no_update = false;
       // When the robot is moving, implement the kalman filter thing..
       //double state_pre[4], state_post[4], cov_pre[16], cov_post[16];
       std::vector<double> state_pre(4,0);
@@ -278,22 +289,19 @@ void SlipDetect::filter()
       cov_pre[15] = cov_[15] + proc_var_wdot_*dt;
       //ROS_INFO("Cov Diag Pre: [ %f, %f, %f, %f]", cov_pre[0], cov_pre[5], cov_pre[10], cov_pre[15]);
       
-      // Odometry residual Standard Deviation
-      odom_std_v = sqrt(cov_pre[0] + odom_var_v_);
-      odom_std_w = sqrt(cov_pre[5] + odom_var_w_);
-      
+      // ENCODER UPDATE      
       // Propagate Covariance to P+ (after measurement update): All elements
       // Encoder update only
-      cov_v = cov_pre[0] + odom_var_v_;
-      cov_w = cov_pre[5] + odom_var_w_;
-      cov_[0]  = cov_pre[0] - cov_pre[0] * cov_pre[0] / cov_v; 
-      cov_[2]  = cov_pre[2] - cov_pre[0] * cov_pre[2] / cov_v; 
-      cov_[5]  = cov_pre[5] - cov_pre[5] * cov_pre[5] / cov_w; 
-      cov_[7]  = cov_pre[7] - cov_pre[5] * cov_pre[7] / cov_w; 
-      cov_[8]  = cov_pre[8] - cov_pre[8] * cov_pre[0] / cov_v; 
-      cov_[10] = cov_pre[10]- cov_pre[8] * cov_pre[2] / cov_v; 
-      cov_[13] = cov_pre[13]- cov_pre[13]* cov_pre[5] / cov_w; 
-      cov_[15] = cov_pre[15]- cov_pre[13]* cov_pre[7] / cov_w; 
+      odom_cov_v = cov_pre[0] + odom_var_v_;
+      odom_cov_w = cov_pre[5] + odom_var_w_;
+      cov_[0]  = cov_pre[0] - cov_pre[0] * cov_pre[0] / odom_cov_v; 
+      cov_[2]  = cov_pre[2] - cov_pre[0] * cov_pre[2] / odom_cov_v; 
+      cov_[5]  = cov_pre[5] - cov_pre[5] * cov_pre[5] / odom_cov_w; 
+      cov_[7]  = cov_pre[7] - cov_pre[5] * cov_pre[7] / odom_cov_w; 
+      cov_[8]  = cov_pre[8] - cov_pre[8] * cov_pre[0] / odom_cov_v; 
+      cov_[10] = cov_pre[10]- cov_pre[8] * cov_pre[2] / odom_cov_v; 
+      cov_[13] = cov_pre[13]- cov_pre[13]* cov_pre[5] / odom_cov_w; 
+      cov_[15] = cov_pre[15]- cov_pre[13]* cov_pre[7] / odom_cov_w; 
       
       // Calculate odometry residual
       odom_v_err = odom_v - state_pre[0];
@@ -308,29 +316,78 @@ void SlipDetect::filter()
       //ROS_INFO("Cov_v: %f, Cov_w: %f, Odom_err_v: %f, odom_err_w: %f", cov_v, cov_w, odom_v_err, odom_w_err);
       //ROS_INFO("odom_var_v: %f, odom_var_w: %f", odom_var_v_, odom_var_w_);
       //ROS_INFO("Cov For Meas Update: [ %f, %f, %f, %f]", cov_[0], cov_[5], cov_[8], cov_[13]);
-      ROS_INFO("State Post: [ %f, %f, %f, %f]", state_[0], state_[1], state_[3], state_[4]);
-      ROS_INFO("Cov Diag Post: [ %f, %f, %f, %f]", cov_[0], cov_[5], cov_[10], cov_[15]);
+      ROS_INFO("Odom State Post: [ %f, %f, %f, %f]", state_[0], state_[1], state_[3], state_[4]);
+      ROS_INFO("Odom Cov Diag Post: [ %f, %f, %f, %f]", cov_[0], cov_[5], cov_[10], cov_[15]);
       ROS_INFO("Odom meas: V: %f, W: %f", odom_v, odom_w);
+      
+      // Reassign state_pre to state
+      state_pre = state_;
+      cov_pre   = cov_;
+      
+      // IMU UPDATE
+      // Propagate Covariance to P+ (after measurement update): All elements
+      // IMU update only
+      imu_cov_a = cov_pre[10]+ imu_var_a_;
+      imu_cov_w = cov_pre[5] + imu_var_w_;
+      cov_[0]  = cov_pre[0] - cov_pre[2] * cov_pre[8] / imu_cov_a; 
+      cov_[2]  = cov_pre[2] - cov_pre[2] * cov_pre[10]/ imu_cov_a; 
+      cov_[5]  = cov_pre[5] - cov_pre[5] * cov_pre[5] / imu_cov_w; 
+      cov_[7]  = cov_pre[7] - cov_pre[5] * cov_pre[7] / imu_cov_w; 
+      cov_[8]  = cov_pre[8] - cov_pre[10]* cov_pre[8] / imu_cov_a; 
+      cov_[10] = cov_pre[10]- cov_pre[10]* cov_pre[10] / imu_cov_a; 
+      cov_[13] = cov_pre[13]- cov_pre[13]* cov_pre[5] / imu_cov_w; 
+      cov_[15] = cov_pre[15]- cov_pre[13]* cov_pre[7] / imu_cov_w;
+      
+      // Calculate odometry residual
+      imu_a_err = x_accel - state_pre[3];
+      imu_w_err = imu_w - state_pre[1];
+      
+      // Measurement update
+      state_[0] = state_pre[0] + imu_a_err * cov_[2] / imu_var_a_;
+      state_[1] = state_pre[1] + imu_w_err * cov_[5] / imu_var_w_;
+      state_[2] = state_pre[2] + imu_a_err * cov_[10]/ imu_var_a_;
+      state_[3] = state_pre[3] + imu_w_err * cov_[13]/ imu_var_w_;
+      
+      ROS_INFO("IMU State Post: [ %f, %f, %f, %f]", state_[0], state_[1], state_[3], state_[4]);
+      ROS_INFO("IMU Cov Diag Post: [ %f, %f, %f, %f]", cov_[0], cov_[5], cov_[10], cov_[15]);
+      ROS_INFO("IMU meas: a: %f, W: %f", x_accel, imu_w);  
+      ROS_INFO("IMU innov: a: %f, W: %f", imu_a_err, imu_w_err);  
       
       //state_ = state_post;
       //cov_   = cov_post;
+          
+      test.corrected_imu_x = x_accel;
+      test.corrected_imu_y = y_accel;
+      test.kf_v = state_[0];
+      test.kf_w = state_[1];
+      test.kf_a = state_[2];
+      test.kf_wdot = state_[3];
+      test.innov_v = odom_v_err;
+      test.innov_w = odom_w_err;
+      test.innov_imu_a = imu_a_err;
+      test.innov_imu_w = imu_w_err;
+      test.innov_bound_v = 3*sqrt(odom_cov_v); // bound on innovation is 3*sigma(v)
+      test.innov_bound_w = 3*sqrt(odom_cov_w); // bound on innovation is 3*sigma(w)
+      test.innov_bound_imu_a = 3*sqrt(imu_cov_a); // bound on innovation is 3*sigma(a)
+      test.innov_bound_imu_w = 3*sqrt(imu_cov_w); // bound on innovation is 3*sigma(w)
+      
     }
   }
   
   imu_new_ = false;
   odom_new_ = false;
-    
-  cutter_msgs::Testing test;
-  test.corrected_imu_x = x_accel;
-  test.corrected_imu_y = y_accel;
-  test.kf_v = state_[0];
-  test.kf_w = state_[1];
-  test.kf_a = state_[2];
-  test.kf_wdot = state_[3];
-  test.innov_bound_v = 3*sqrt(cov_v); // bound on innovation is 3*sigma(v)
-  test.innov_bound_w = 3*sqrt(cov_w); // bound on innovation is 3*sigma(w)
-  test.innov_v = odom_v_err;
-  test.innov_w = odom_w_err;
+
+  if (no_update)
+  {
+    // Populate the kalman filter variables with the last state
+    test.corrected_imu_x = x_accel;
+    test.corrected_imu_y = y_accel;
+    test.kf_v = state_[0];
+    test.kf_w = state_[1];
+    test.kf_a = state_[2];
+    test.kf_wdot = state_[3];
+  }
+
 
   test_pub_.publish(test);
   
