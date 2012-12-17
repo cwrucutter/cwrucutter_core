@@ -6,14 +6,20 @@
 
 #include <ros.h>
 #include <ros/time.h>
-#include <sensor_msgs/Range.h>
+//#include <sensor_msgs/Range.h>
+#include <cutter_arduino/Analog_Rangefinder.h>
 
 ros::NodeHandle  nh;
 
 
-sensor_msgs::Range range_msg_0;
+//sensor_msgs::Range range_msg_0;
+//ros::Publisher pub_range_0( "cwru/range0", &range_msg_0);
+//sensor_msgs::Range range_msg_1;
+//ros::Publisher pub_range_1( "cwru/range1", &range_msg_1);
+
+cutter_arduino::Analog_Rangefinder range_msg_0;
 ros::Publisher pub_range_0( "cwru/range0", &range_msg_0);
-sensor_msgs::Range range_msg_1;
+cutter_arduino::Analog_Rangefinder range_msg_1;
 ros::Publisher pub_range_1( "cwru/range1", &range_msg_1);
 
 const int analog_pin_0 = 0;
@@ -52,7 +58,7 @@ void setup()
   nh.initNode();
   nh.advertise(pub_range_0);
   nh.advertise(pub_range_1);
-  
+  /*
   range_msg_0.radiation_type = sensor_msgs::Range::INFRARED;
   range_msg_0.header.frame_id =  frameid0;
   range_msg_0.field_of_view = 0.01;
@@ -63,7 +69,7 @@ void setup()
   range_msg_1.header.frame_id =  frameid1;
   range_msg_1.field_of_view = 0.01;
   range_msg_1.min_range = 0.03;
-  range_msg_1.max_range = 0.4;
+  range_msg_1.max_range = 0.4;*/
   
 }
 
@@ -71,12 +77,16 @@ void loop()
 {
   // publish the range value every 50 milliseconds
   //   since it takes that long for the sensor to stabilize
-  if ( (millis()-range_timer) > 100){
+  if ( (millis()-range_timer) > 50){
+    /*
     ros::Time t = nh.now();
     range_msg_0.range = getRange(analog_pin_0);
     range_msg_0.header.stamp = t;
     range_msg_1.range = getRange(analog_pin_1);
-    range_msg_1.header.stamp = t;
+    range_msg_1.header.stamp = t;*/
+    
+    range_msg_0.range = getRange(analog_pin_0);
+    range_msg_1.range = getRange(analog_pin_1);
     
     pub_range_0.publish(&range_msg_0);
     pub_range_1.publish(&range_msg_1);

@@ -1,1 +1,1 @@
-float64[] ranges
+float64 range
