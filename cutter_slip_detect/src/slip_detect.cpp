@@ -45,6 +45,7 @@
 #include "cutter_msgs/SlipStatus.h"
 #include <vector>
 #include <algorithm>
+#include "kalman_velocity.h"
 
 // RunningStat class source code from the helpful website:
 // http://www.johndcook.com/standard_deviation.html
@@ -104,297 +105,6 @@ private:
   int m_n;
   double m_oldM, m_newM, m_oldS, m_newS;
 };
-
-class KalmanVelocity
-{
-// Class for the Kalman Filter on velocity and accelerations, 
-// Provides update methods for encoders and IMUs
-public: 
-  KalmanVelocity(); 
-  bool initialize(double dt, double proc_var_v, double proc_var_w, double proc_var_a, double proc_var_wdot);
-  bool initializeEncoderNoise(double odom_var_v, double odom_var_w);
-  bool initializeIMUNoise(double odom_var_v, double odom_var_w); 
-  bool addMeasurementEncoders(double odom_v, double odom_w);
-  bool addMeasurementIMU(double imu_a, double imu_w);
-  bool update();
-  
-  // Kalman Filter Variables
-  std::vector<double> state_;
-  std::vector<double> cov_;
-  double odom_innov_v_;
-  double odom_innov_w_;
-  double odom_cov_v_;
-  double odom_cov_w_;
-  double imu_innov_a_;
-  double imu_innov_w_;
-  double imu_cov_a_;
-  double imu_cov_w_;
-private:
-  // Kalman filter functions
-  bool predictKF(std::vector<double> *state_pre, std::vector<double> *cov_pre);
-  bool measureKF(const std::vector<double> &state_pre, const std::vector<double> &cov_pre,
-                 std::vector<double> *state_post, std::vector<double> *cov_post);
-  bool measureUpdateEncoder(const std::vector<double> &state_pre, const std::vector<double> &cov_pre,
-                           std::vector<double> *state_post, std::vector<double> *cov_post);
-  bool measureUpdateIMU(const std::vector<double> &state_pre, const std::vector<double> &cov_pre,
-                       std::vector<double> *state_post, std::vector<double> *cov_post);
-  
-  // Kalman Filter parameters
-  double odom_R_v_;
-  double odom_R_w_;
-  double imu_R_a_;
-  double imu_R_w_;
-  double proc_Q_v_;
-  double proc_Q_w_;
-  double proc_Q_a_;
-  double proc_Q_wdot_;
-  bool odom_init_;
-  bool imu_init_;
-  double dt_;
-  
-  
-  // Update variables
-  double odom_v_;
-  double odom_w_;
-  double imu_a_;
-  double imu_w_;
-  bool odom_new_;
-  bool imu_new_;
-};
-
-KalmanVelocity::KalmanVelocity():
-state_(4),cov_(16)
-{
-  odom_init_ = false;
-  odom_new_ = false;
-  imu_init_ = false;
-  imu_new_ = false;
-  odom_innov_v_ = 0;
-  odom_innov_w_ = 0;
-  imu_innov_a_ = 0;
-  imu_innov_w_ = 0;
-  odom_cov_v_ = 0;
-  odom_cov_w_ = 0;
-  imu_cov_a_ = 0;
-  imu_cov_w_ = 0;
-};
-
-bool KalmanVelocity::initialize(double dt, double proc_var_v, double proc_var_w, double proc_var_a, double proc_var_wdot)
-{
-  dt_ = dt; 
-
-  // Initialize covariance diagonal
-  cov_[0]  = 1;
-  cov_[5]  = 1;
-  cov_[10] = 1;
-  cov_[15] = 1;
-  
-  // Initialize Process Noise
-  proc_Q_v_ = proc_var_v;
-  proc_Q_w_ = proc_var_w;
-  proc_Q_a_ = proc_var_a;
-  proc_Q_wdot_ = proc_var_wdot;  
-  return true;
-}
-
-bool KalmanVelocity::initializeEncoderNoise(double odom_var_v, double odom_var_w) 
-{
-  odom_R_v_ = odom_var_v;
-  odom_R_w_ = odom_var_w;
-  odom_init_ = true;
-  return true;
-}
-
-bool KalmanVelocity::initializeIMUNoise(double imu_var_a, double imu_var_w)
-{
-  imu_R_a_ = imu_var_a;
-  imu_R_w_ = imu_var_w;
-  imu_init_ = true;
-  return true;
-}
-
-bool KalmanVelocity::addMeasurementEncoders(double odom_v, double odom_w)
-{
-  if (!odom_init_)
-  {
-    ROS_ERROR("Tried to add Encoder measurement before initializing");
-    return false;
-  }
-  odom_v_ = odom_v;
-  odom_w_ = odom_w;
-  odom_new_ = true;
-  return true;
-}
-
-bool KalmanVelocity::addMeasurementIMU(double imu_a, double imu_w)
-{
-  if (!imu_init_)
-  {
-    ROS_ERROR("Tried to add IMU measurement before initializing");
-    return false;
-  }
-  imu_a_ = imu_a;
-  imu_w_ = imu_w;
-  imu_new_ = true;
-  return true;
-}
-
-bool KalmanVelocity::update()
-{
-  // Perform the prediction and measurement update states for the Kalman filter
-  
-  std::vector<double> state_pre(4,0);
-  std::vector<double> state_post(4,0);
-  std::vector<double> cov_pre(16,0);
-  std::vector<double> cov_post(16,0);
-  
-  ROS_INFO("Updating Kalman Filter");
-  //ROS_INFO("Initial State: [ %f, %f, %f, %f]", state_[0], state_[1], state_[2], state_[3]);
-  //ROS_INFO("Initial Cov Diag: [ %f, %f, %f, %f]", cov_[0], cov_[5], cov_[10], cov_[15]);
-  predictKF(&state_pre, &cov_pre);
-  //ROS_INFO("State Pre:  [ %f, %f, %f, %f]", state_pre[0], state_pre[1], state_pre[2], state_pre[3]);
-  //ROS_INFO("Cov Pre: [ %f, %f, %f, %f]", cov_pre[0], cov_pre[5], cov_pre[10], cov_pre[15]);
-  
-  if (odom_new_ || imu_new_)
-  {
-    // measureKF 
-    measureKF(state_pre, cov_pre, &state_post, &cov_post);
-  }
-  else
-  {
-    // If no updates, save the predicted state and covariance
-    state_post = state_pre;
-    cov_post   = cov_pre;
-  }
-  
-  state_ = state_post;
-  cov_   = cov_post;
-  
-  //ROS_INFO("State After Update: [ %f, %f, %f, %f]", state_[0], state_[1], state_[2], state_[3]);
-  //ROS_INFO("Initial Cov After Update: [ %f, %f, %f, %f]", cov_[0], cov_[5], cov_[10], cov_[15]);
-  
-  return true;
-}
-
-
-bool KalmanVelocity::predictKF(std::vector<double> *state_pre, std::vector<double> *cov_pre)
-{
-  //TODO: Verify that state_pre and cov_pre are valid
-  
-  // Propagate the state to X_pre
-  state_pre->at(0) = state_[0] + state_[2]*dt_;  // v_new = v + a*dt
-  state_pre->at(1) = state_[1] + state_[3]*dt_;  // w_new = w + w_dot*dt
-  state_pre->at(2) = state_[2];                // a_new = a
-  state_pre->at(3) = state_[3];                // w_dot_new = w_dot
-  //ROS_INFO("dt: %f, Q_v: %f, Q_w: %f, Q_a: %f, Q_wdot: %f", dt_, proc_Q_v_, proc_Q_w_, proc_Q_a_, proc_Q_wdot_);
-  
-  // Propagate Covariance to P_pre (after state update): All elements
-  cov_pre->at(0)  = cov_[0] + cov_[8]*dt_  + cov_[2]*dt_ + cov_[10]*dt_*dt_ + proc_Q_v_*dt_;
-  cov_pre->at(2)  = cov_[2] + cov_[10]*dt_;
-  cov_pre->at(5)  = cov_[5] + cov_[13]*dt_ + cov_[7]*dt_ + cov_[15]*dt_*dt_ + proc_Q_w_*dt_;
-  cov_pre->at(7)  = cov_[7] + cov_[15]*dt_;
-  cov_pre->at(8)  = cov_[10]*dt_;
-  cov_pre->at(10) = cov_[10] + proc_Q_a_*dt_;
-  cov_pre->at(13) = cov_[15]*dt_;
-  cov_pre->at(15) = cov_[15] + proc_Q_wdot_*dt_;
-  
-  return true;
-}
-
-bool KalmanVelocity::measureKF(const std::vector<double> &state_pre, const std::vector<double> &cov_pre,
-                              std::vector<double> *state_post, std::vector<double> *cov_post)
-{
-  std::vector<double> state_in(4,0);
-  std::vector<double> cov_in(16,0);
-  
-  state_in = state_pre;
-  cov_in = cov_pre;
-  *state_post = state_pre;
-  *cov_post = cov_pre;
-  
-  if (odom_new_)
-  {
-    measureUpdateEncoder(state_in, cov_in, state_post, cov_post);
-    odom_new_ = false;
-  }
-  
-  state_in = *state_post;
-  cov_in = *cov_post;
-  
-  if (imu_new_)
-  {
-    measureUpdateIMU(state_in, cov_in, state_post, cov_post);
-    imu_new_ = false;
-  }
-  
-  return true;
-}
-
-bool KalmanVelocity::measureUpdateEncoder(const std::vector<double> &state_pre, const std::vector<double> &cov_pre,
-                                          std::vector<double> *state_post, std::vector<double> *cov_post)
-{
-  // ENCODER UPDATE  
-  // Propagate Covariance to P+ (after measurement update): All elements
-  // Encoder update only
-  odom_cov_v_ = cov_pre[0] + odom_R_v_;
-  odom_cov_w_ = cov_pre[5] + odom_R_w_;
-  cov_post->at(0)  = cov_pre[0] - cov_pre[0] * cov_pre[0] / odom_cov_v_; 
-  cov_post->at(2)  = cov_pre[2] - cov_pre[0] * cov_pre[2] / odom_cov_v_; 
-  cov_post->at(5)  = cov_pre[5] - cov_pre[5] * cov_pre[5] / odom_cov_w_; 
-  cov_post->at(7)  = cov_pre[7] - cov_pre[5] * cov_pre[7] / odom_cov_w_; 
-  cov_post->at(8)  = cov_pre[8] - cov_pre[8] * cov_pre[0] / odom_cov_v_; 
-  cov_post->at(10) = cov_pre[10]- cov_pre[8] * cov_pre[2] / odom_cov_v_; 
-  cov_post->at(13) = cov_pre[13]- cov_pre[13]* cov_pre[5] / odom_cov_w_; 
-  cov_post->at(15) = cov_pre[15]- cov_pre[13]* cov_pre[7] / odom_cov_w_; 
-
-  // Calculate odometry residual
-  odom_innov_v_ = odom_v_ - state_pre[0];
-  odom_innov_w_ = odom_w_ - state_pre[1];
-
-  // Measurement update
-  state_post->at(0) = state_pre[0] + odom_innov_v_ * cov_[0] / odom_R_v_;
-  state_post->at(1) = state_pre[1] + odom_innov_w_ * cov_[5] / odom_R_w_;
-  state_post->at(2) = state_pre[2] + odom_innov_v_ * cov_[8] / odom_R_v_;
-  state_post->at(3) = state_pre[3] + odom_innov_w_ * cov_[13]/ odom_R_w_;  
-
-  //ROS_INFO("Odom meas: V: %f, W: %f", odom_v_, odom_w_);
-  return true;
-}
-
-bool KalmanVelocity::measureUpdateIMU(const std::vector<double> &state_pre, const std::vector<double> &cov_pre,
-                                       std::vector<double> *state_post, std::vector<double> *cov_post)
-{  
-  //NOTE: I commented out the updates related to the accelerometer. They werent working for some reason
-  //     Add these back in the future. There may be sme more calibration needed. It looked like bad data,
-  //     Or bad math/code. But the gyro and the encoders work, so I'm leaning towards bad data :) 
-  
-  // IMU UPDATE
-  // Propagate Covariance to P+ (after measurement update): All elements
-  // IMU update only
-  imu_cov_a_ = cov_pre[10]+ imu_R_a_;
-  imu_cov_w_ = cov_pre[5] + imu_R_w_;
-  cov_post->at(5)  = cov_pre[5] - cov_pre[5] * cov_pre[5] / imu_cov_w_; 
-  cov_post->at(7)  = cov_pre[7] - cov_pre[5] * cov_pre[7] / imu_cov_w_; 
-  cov_post->at(13) = cov_pre[13]- cov_pre[13]* cov_pre[5] / imu_cov_w_; 
-  cov_post->at(15) = cov_pre[15]- cov_pre[13]* cov_pre[7] / imu_cov_w_;
-  //cov_post->at(0)  = cov_pre[0] - cov_pre[2] * cov_pre[8] / imu_cov_a_; 
-  //cov_post->at(2)  = cov_pre[2] - cov_pre[2] * cov_pre[10]/ imu_cov_a_; 
-  //cov_post->at(8)  = cov_pre[8] - cov_pre[10]* cov_pre[8] / imu_cov_a_; 
-  //cov_post->at(10) = cov_pre[10]- cov_pre[10]* cov_pre[10]/ imu_cov_a_; 
-      
-  // Calculate imu residual
-  imu_innov_a_ = imu_a_ - state_pre[3];
-  imu_innov_w_ = imu_w_ - state_pre[1];
-  
-  // Measurement update
-  state_post->at(1) = state_pre[1] + imu_innov_w_ * cov_[5] / imu_R_w_;
-  state_post->at(3) = state_pre[3] + imu_innov_w_ * cov_[13]/ imu_R_w_;
-  //state_post->at(0) = state_pre[0] + imu_innov_a_ * cov_[2] / imu_R_a_;
-  //state_post->at(2) = state_pre[2] + imu_innov_a_ * cov_[10]/ imu_R_a_;
-  
-  //ROS_INFO("IMU meas: a: %f, W: %f", imu_a_, imu_w_);  
-  return true;
-}
 
 class SlipDetect
 {
@@ -545,7 +255,7 @@ void SlipDetect::filter()
       central_filter_.addMeasurementIMU(x_accel, imu_w);
       central_filter_.update();
           
-      
+      // Save off all the debugging info I want
       test.corrected_imu_x = x_accel;
       test.corrected_imu_y = y_accel;
       test.kf_v = central_filter_.state_[0];
@@ -561,6 +271,10 @@ void SlipDetect::filter()
       test.innov_bound_imu_a = 3*sqrt(central_filter_.imu_cov_a_); // bound on innovation is 3*sigma(a)
       test.innov_bound_imu_w = 3*sqrt(central_filter_.imu_cov_w_); // bound on innovation is 3*sigma(w)
       
+      // Calculate the certainty for each measurement:
+      //    certainty = measurement / sqrt(covariance)
+      // if meas > 3*sqrt(cov), then there's like a 1% chance or less that 
+      // the measurement is correct
       double slip_enc_v, slip_enc_w, slip_gyro, slip_accel = 0;
       if (fabs(central_filter_.odom_cov_v_)>.001)
         slip_enc_v = fabs(central_filter_.odom_innov_v_ / sqrt(central_filter_.odom_cov_v_) );
@@ -576,7 +290,8 @@ void SlipDetect::filter()
       slip.slip_enc_w = slip_enc_v;
       slip.slip_gyro  = slip_gyro;
       slip.slip_accel = slip_accel;
-      if (max_innov > 3)
+      slip.slip_max = max_innov;
+      if (max_innov > 3) // Slip if the max innovation is > 3
         slip.slip = 1;
       else
         slip.slip = 0;
