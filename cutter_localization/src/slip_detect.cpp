@@ -329,12 +329,12 @@ void SlipDetect::filter()
       // IMU update only
       imu_cov_a = cov_pre[10]+ imu_var_a_;
       imu_cov_w = cov_pre[5] + imu_var_w_;
-      cov_[0]  = cov_pre[0] - cov_pre[2] * cov_pre[8] / imu_cov_a; 
-      cov_[2]  = cov_pre[2] - cov_pre[2] * cov_pre[10]/ imu_cov_a; 
+      //cov_[0]  = cov_pre[0] - cov_pre[2] * cov_pre[8] / imu_cov_a; 
+      //cov_[2]  = cov_pre[2] - cov_pre[2] * cov_pre[10]/ imu_cov_a; 
       cov_[5]  = cov_pre[5] - cov_pre[5] * cov_pre[5] / imu_cov_w; 
       cov_[7]  = cov_pre[7] - cov_pre[5] * cov_pre[7] / imu_cov_w; 
-      cov_[8]  = cov_pre[8] - cov_pre[10]* cov_pre[8] / imu_cov_a; 
-      cov_[10] = cov_pre[10]- cov_pre[10]* cov_pre[10] / imu_cov_a; 
+      //cov_[8]  = cov_pre[8] - cov_pre[10]* cov_pre[8] / imu_cov_a; 
+      //cov_[10] = cov_pre[10]- cov_pre[10]* cov_pre[10] / imu_cov_a; 
       cov_[13] = cov_pre[13]- cov_pre[13]* cov_pre[5] / imu_cov_w; 
       cov_[15] = cov_pre[15]- cov_pre[13]* cov_pre[7] / imu_cov_w;
       
@@ -343,9 +343,9 @@ void SlipDetect::filter()
       imu_w_err = imu_w - state_pre[1];
       
       // Measurement update
-      state_[0] = state_pre[0] + imu_a_err * cov_[2] / imu_var_a_;
+      //state_[0] = state_pre[0] + imu_a_err * cov_[2] / imu_var_a_;
       state_[1] = state_pre[1] + imu_w_err * cov_[5] / imu_var_w_;
-      state_[2] = state_pre[2] + imu_a_err * cov_[10]/ imu_var_a_;
+      //state_[2] = state_pre[2] + imu_a_err * cov_[10]/ imu_var_a_;
       state_[3] = state_pre[3] + imu_w_err * cov_[13]/ imu_var_w_;
       
       ROS_INFO("IMU State Post: [ %f, %f, %f, %f]", state_[0], state_[1], state_[3], state_[4]);

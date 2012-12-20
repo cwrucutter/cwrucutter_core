@@ -370,12 +370,12 @@ bool KalmanVelocity::measureUpdateIMU(const std::vector<double> &state_pre, cons
   // IMU update only
   imu_cov_a_ = cov_pre[10]+ imu_R_a_;
   imu_cov_w_ = cov_pre[5] + imu_R_w_;
-  cov_post->at(0)  = cov_pre[0] - cov_pre[2] * cov_pre[8] / imu_cov_a_; 
-  cov_post->at(2)  = cov_pre[2] - cov_pre[2] * cov_pre[10]/ imu_cov_a_; 
+  //cov_post->at(0)  = cov_pre[0] - cov_pre[2] * cov_pre[8] / imu_cov_a_; 
+  //cov_post->at(2)  = cov_pre[2] - cov_pre[2] * cov_pre[10]/ imu_cov_a_; 
   cov_post->at(5)  = cov_pre[5] - cov_pre[5] * cov_pre[5] / imu_cov_w_; 
   cov_post->at(7)  = cov_pre[7] - cov_pre[5] * cov_pre[7] / imu_cov_w_; 
-  cov_post->at(8)  = cov_pre[8] - cov_pre[10]* cov_pre[8] / imu_cov_a_; 
-  cov_post->at(10) = cov_pre[10]- cov_pre[10]* cov_pre[10]/ imu_cov_a_; 
+  //cov_post->at(8)  = cov_pre[8] - cov_pre[10]* cov_pre[8] / imu_cov_a_; 
+  //cov_post->at(10) = cov_pre[10]- cov_pre[10]* cov_pre[10]/ imu_cov_a_; 
   cov_post->at(13) = cov_pre[13]- cov_pre[13]* cov_pre[5] / imu_cov_w_; 
   cov_post->at(15) = cov_pre[15]- cov_pre[13]* cov_pre[7] / imu_cov_w_;
       
@@ -384,9 +384,9 @@ bool KalmanVelocity::measureUpdateIMU(const std::vector<double> &state_pre, cons
   imu_innov_w_ = imu_w_ - state_pre[1];
   
   // Measurement update
-  state_post->at(0) = state_pre[0] + imu_innov_a_ * cov_[2] / imu_R_a_;
+  //state_post->at(0) = state_pre[0] + imu_innov_a_ * cov_[2] / imu_R_a_;
   state_post->at(1) = state_pre[1] + imu_innov_w_ * cov_[5] / imu_R_w_;
-  state_post->at(2) = state_pre[2] + imu_innov_a_ * cov_[10]/ imu_R_a_;
+  //state_post->at(2) = state_pre[2] + imu_innov_a_ * cov_[10]/ imu_R_a_;
   state_post->at(3) = state_pre[3] + imu_innov_w_ * cov_[13]/ imu_R_w_;
   
   //ROS_INFO("IMU State Post: [ %f, %f, %f, %f]", state_[0], state_[1], state_[3], state_[4]);
@@ -553,102 +553,6 @@ void SlipDetect::filter()
       central_filter_.addMeasurementEncoders(odom_v, odom_w);
       central_filter_.addMeasurementIMU(x_accel, imu_w);
       central_filter_.update();
-      
-      /*
-      // When the robot is moving, implement the kalman filter thing..
-      //double state_pre[4], state_post[4], cov_pre[16], cov_post[16];
-      std::vector<double> state_pre(4,0);
-      std::vector<double> cov_pre(16,0);
-      double odom_std_v, odom_std_w;
-      double dt = 1/loop_rate_;
-      
-      //ROS_INFO("Initial State: [ %f, %f, %f, %f]", state_[0], state_[1], state_[2], state_[3]);
-      // Propagate the state to X_pre
-      state_pre[0] = state_[0] + state_[2]*dt;  // v_new = v + a*dt
-      state_pre[1] = state_[1] + state_[3]*dt;  // w_new = w + w_dot*dt
-      state_pre[2] = state_[2];                // a_new = a
-      state_pre[3] = state_[3];                // w_dot_new = w_dot
-      //ROS_INFO("State Pre:  [ %f, %f, %f, %f]", state_pre[0], state_pre[1], state_pre[2], state_pre[3]);
-      
-      // Propagate Covariance to P_pre (after state update): All elements
-      //ROS_INFO("Initial Cov Diag: [ %f, %f, %f, %f]", cov_[0], cov_[5], cov_[10], cov_[15]);
-      cov_pre[0]  = cov_[0] + cov_[8]*dt  + cov_[2]*dt + cov_[10]*dt*dt + proc_var_v_*dt;
-      cov_pre[2]  = cov_[2] + cov_[10]*dt;
-      cov_pre[5]  = cov_[5] + cov_[13]*dt + cov_[7]*dt + cov_[15]*dt*dt + proc_var_w_*dt;
-      cov_pre[7]  = cov_[7] + cov_[15]*dt;
-      cov_pre[8]  = cov_[10]*dt;
-      cov_pre[10] = cov_[10] + proc_var_a_*dt;
-      cov_pre[13] = cov_[15]*dt;
-      cov_pre[15] = cov_[15] + proc_var_wdot_*dt;
-      //ROS_INFO("Cov Diag Pre: [ %f, %f, %f, %f]", cov_pre[0], cov_pre[5], cov_pre[10], cov_pre[15]);
-      
-      // ENCODER UPDATE      
-      // Propagate Covariance to P+ (after measurement update): All elements
-      // Encoder update only
-      odom_cov_v = cov_pre[0] + odom_var_v_;
-      odom_cov_w = cov_pre[5] + odom_var_w_;
-      cov_[0]  = cov_pre[0] - cov_pre[0] * cov_pre[0] / odom_cov_v; 
-      cov_[2]  = cov_pre[2] - cov_pre[0] * cov_pre[2] / odom_cov_v; 
-      cov_[5]  = cov_pre[5] - cov_pre[5] * cov_pre[5] / odom_cov_w; 
-      cov_[7]  = cov_pre[7] - cov_pre[5] * cov_pre[7] / odom_cov_w; 
-      cov_[8]  = cov_pre[8] - cov_pre[8] * cov_pre[0] / odom_cov_v; 
-      cov_[10] = cov_pre[10]- cov_pre[8] * cov_pre[2] / odom_cov_v; 
-      cov_[13] = cov_pre[13]- cov_pre[13]* cov_pre[5] / odom_cov_w; 
-      cov_[15] = cov_pre[15]- cov_pre[13]* cov_pre[7] / odom_cov_w; 
-      
-      // Calculate odometry residual
-      odom_v_err = odom_v - state_pre[0];
-      odom_w_err = odom_w - state_pre[1];
-      
-      // Measurement update
-      state_[0] = state_pre[0] + odom_v_err * cov_[0] / odom_var_v_;
-      state_[1] = state_pre[1] + odom_w_err * cov_[5] / odom_var_w_;
-      state_[2] = state_pre[2] + odom_v_err * cov_[8] / odom_var_v_;
-      state_[3] = state_pre[3] + odom_w_err * cov_[13]/ odom_var_w_;    
-      
-      //ROS_INFO("Cov_v: %f, Cov_w: %f, Odom_err_v: %f, odom_err_w: %f", cov_v, cov_w, odom_v_err, odom_w_err);
-      //ROS_INFO("odom_var_v: %f, odom_var_w: %f", odom_var_v_, odom_var_w_);
-      //ROS_INFO("Cov For Meas Update: [ %f, %f, %f, %f]", cov_[0], cov_[5], cov_[8], cov_[13]);
-      ROS_INFO("Odom State Post: [ %f, %f, %f, %f]", state_[0], state_[1], state_[3], state_[4]);
-      ROS_INFO("Odom Cov Diag Post: [ %f, %f, %f, %f]", cov_[0], cov_[5], cov_[10], cov_[15]);
-      ROS_INFO("Odom meas: V: %f, W: %f", odom_v, odom_w);
-      
-      // Reassign state_pre to state
-      state_pre = state_;
-      cov_pre   = cov_;
-      
-      // IMU UPDATE
-      // Propagate Covariance to P+ (after measurement update): All elements
-      // IMU update only
-      imu_cov_a = cov_pre[10]+ imu_var_a_;
-      imu_cov_w = cov_pre[5] + imu_var_w_;
-      cov_[0]  = cov_pre[0] - cov_pre[2] * cov_pre[8] / imu_cov_a; 
-      cov_[2]  = cov_pre[2] - cov_pre[2] * cov_pre[10]/ imu_cov_a; 
-      cov_[5]  = cov_pre[5] - cov_pre[5] * cov_pre[5] / imu_cov_w; 
-      cov_[7]  = cov_pre[7] - cov_pre[5] * cov_pre[7] / imu_cov_w; 
-      cov_[8]  = cov_pre[8] - cov_pre[10]* cov_pre[8] / imu_cov_a; 
-      cov_[10] = cov_pre[10]- cov_pre[10]* cov_pre[10] / imu_cov_a; 
-      cov_[13] = cov_pre[13]- cov_pre[13]* cov_pre[5] / imu_cov_w; 
-      cov_[15] = cov_pre[15]- cov_pre[13]* cov_pre[7] / imu_cov_w;
-      
-      // Calculate odometry residual
-      imu_a_err = x_accel - state_pre[3];
-      imu_w_err = imu_w - state_pre[1];
-      
-      // Measurement update
-      state_[0] = state_pre[0] + imu_a_err * cov_[2] / imu_var_a_;
-      state_[1] = state_pre[1] + imu_w_err * cov_[5] / imu_var_w_;
-      state_[2] = state_pre[2] + imu_a_err * cov_[10]/ imu_var_a_;
-      state_[3] = state_pre[3] + imu_w_err * cov_[13]/ imu_var_w_;
-      
-      ROS_INFO("IMU State Post: [ %f, %f, %f, %f]", state_[0], state_[1], state_[3], state_[4]);
-      ROS_INFO("IMU Cov Diag Post: [ %f, %f, %f, %f]", cov_[0], cov_[5], cov_[10], cov_[15]);
-      ROS_INFO("IMU meas: a: %f, W: %f", x_accel, imu_w);  
-      ROS_INFO("IMU innov: a: %f, W: %f", imu_a_err, imu_w_err);  
-      
-      //state_ = state_post;
-      //cov_   = cov_post;*/
-          
           
       
       test.corrected_imu_x = x_accel;
