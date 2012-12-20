@@ -123,6 +123,11 @@ bool KalmanVelocity::update()
   std::vector<double> cov_pre(16,0);
   std::vector<double> cov_post(16,0);
   
+  // TODO: Make the predict and measure updates overrideable for virtual classes
+  //       ... OR, take a look at open source KF libraries! BFL, etc. 
+  //        It would probably be better organized that what I've got here
+  
+  // PREDICTION UPDATE
   ROS_INFO("Updating Kalman Filter");
   //ROS_INFO("Initial State: [ %f, %f, %f, %f]", state_[0], state_[1], state_[2], state_[3]);
   //ROS_INFO("Initial Cov Diag: [ %f, %f, %f, %f]", cov_[0], cov_[5], cov_[10], cov_[15]);
@@ -130,14 +135,15 @@ bool KalmanVelocity::update()
   //ROS_INFO("State Pre:  [ %f, %f, %f, %f]", state_pre[0], state_pre[1], state_pre[2], state_pre[3]);
   //ROS_INFO("Cov Pre: [ %f, %f, %f, %f]", cov_pre[0], cov_pre[5], cov_pre[10], cov_pre[15]);
   
-  if (odom_new_ || imu_new_)
+  // MEASUREMENT UPDATE
+  if (odom_new_ || imu_new_) // Only if new data is received
   {
     // measureKF 
     measureKF(state_pre, cov_pre, &state_post, &cov_post);
   }
   else
   {
-    // If no updates, save the predicted state and covariance
+    // Otherwise, use state_pre and cov_pre
     state_post = state_pre;
     cov_post   = cov_pre;
   }
@@ -154,14 +160,18 @@ bool KalmanVelocity::update()
 
 bool KalmanVelocity::predictKF(std::vector<double> *state_pre, std::vector<double> *cov_pre)
 {
-  //TODO: Verify that state_pre and cov_pre are valid
-  
+  if (!(state_pre->size() && cov_pre->size()))
+  {
+    // I'm just assuming that if the vectors are initialized then they'll be the right size
+    ROS_ERROR("Must initialize vectors in KalmanVelocity::predictKF()");
+    return false;
+  }
+
   // Propagate the state to X_pre
   state_pre->at(0) = state_[0] + state_[2]*dt_;  // v_new = v + a*dt
   state_pre->at(1) = state_[1] + state_[3]*dt_;  // w_new = w + w_dot*dt
-  state_pre->at(2) = state_[2];                // a_new = a
-  state_pre->at(3) = state_[3];                // w_dot_new = w_dot
-  //ROS_INFO("dt: %f, Q_v: %f, Q_w: %f, Q_a: %f, Q_wdot: %f", dt_, proc_Q_v_, proc_Q_w_, proc_Q_a_, proc_Q_wdot_);
+  state_pre->at(2) = state_[2];                  // a_new = a
+  state_pre->at(3) = state_[3];                  // w_dot_new = w_dot
   
   // Propagate Covariance to P_pre (after state update): All elements
   cov_pre->at(0)  = cov_[0] + cov_[8]*dt_  + cov_[2]*dt_ + cov_[10]*dt_*dt_ + proc_Q_v_*dt_;
@@ -173,37 +183,44 @@ bool KalmanVelocity::predictKF(std::vector<double> *state_pre, std::vector<doubl
   cov_pre->at(13) = cov_[15]*dt_;
   cov_pre->at(15) = cov_[15] + proc_Q_wdot_*dt_;
   
+  limitCovariance(cov_pre, 15);
+  
   return true;
 }
 
 bool KalmanVelocity::measureKF(const std::vector<double> &state_pre, const std::vector<double> &cov_pre,
                               std::vector<double> *state_post, std::vector<double> *cov_post)
 {
+  // Measurement Update results are returned
+  //  inside the populated state_post and cov_post
+  
+  if (!(state_pre->size() && cov_pre->size() && state_post.size() && cov_post.size()))
+  {
+    // I'm just assuming that if the vectors are initialized then they'll be the right size
+    ROS_ERROR("Must initialize vectors in KalmanVelocity::measureKF()");
+    return false;
+  }
+  
   std::vector<double> state_in(4,0);
   std::vector<double> cov_in(16,0);
   
+  // Save vectors
   state_in = state_pre;
   cov_in = cov_pre;
   *state_post = state_pre;
   *cov_post = cov_pre;
   
-  // NOTE: I think that because the measurements are applied successively,
-  //      only the odometry update is really being used at all. The gyro update
-  //      seems to be basicaly ignored. 
-  // FIX: - Could fix by making a centralized KF with a single update step
-  //      - Or, can split into two filters as desired. That would be good so the
-  //        measurements dont corrupt each other. 
-  
-  if (odom_new_)
+  if (odom_new_) // Perform odometry update if necessary
   {
     measureUpdateEncoder(state_in, cov_in, state_post, cov_post);
     odom_new_ = false;
   }
   
+  // Save vectors
   state_in = *state_post;
   cov_in = *cov_post;
   
-  if (imu_new_)
+  if (imu_new_) // Perform Auxillary update if necessary
   {
     measureUpdateIMU(state_in, cov_in, state_post, cov_post);
     imu_new_ = false;
@@ -276,4 +293,18 @@ bool KalmanVelocity::measureUpdateIMU(const std::vector<double> &state_pre, cons
   
   //ROS_INFO("IMU meas: a: %f, W: %f", imu_a_, imu_w_);  
   return true;
+}
+
+void KalmanVelocity::limitCovariance(std::vector<double> *vec, double limit)
+{
+  // vec should be size 16
+  // Just limit the vector to the max uncertainty... Shouldnt change too much if the max uncertainty is reasonably large
+  vec->at(0)  = std::min(vec->at(0) , limit);
+  vec->at(2)  = std::min(vec->at(2) , limit);
+  vec->at(5)  = std::min(vec->at(5) , limit);
+  vec->at(7)  = std::min(vec->at(7) , limit);
+  vec->at(8)  = std::min(vec->at(8) , limit);
+  vec->at(10) = std::min(vec->at(10), limit);
+  vec->at(13) = std::min(vec->at(13), limit);
+  vec->at(15) = std::min(vec->at(15), limit);
 }

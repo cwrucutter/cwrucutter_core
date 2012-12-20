@@ -4,9 +4,9 @@
     <param name="odom_var_w" value=".03" type="double"/>
     <param name="imu_var_a" value="1" type="double"/>
     <param name="imu_var_w" value=".03" type="double"/>
-    <param name="proc_var_v" value=".01" type="double"/>
-    <param name="proc_var_w" value=".01" type="double"/>
-    <param name="proc_var_a" value=".4" type="double"/>
-    <param name="proc_var_wdot" value=".4" type="double"/>
+    <param name="proc_var_v" value=".02" type="double"/>
+    <param name="proc_var_w" value=".02" type="double"/>
+    <param name="proc_var_a" value=".5" type="double"/>
+    <param name="proc_var_wdot" value=".5" type="double"/>
   </node>
 </launch>

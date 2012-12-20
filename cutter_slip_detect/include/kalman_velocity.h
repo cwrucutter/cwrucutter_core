@@ -72,6 +72,8 @@ private:
                            std::vector<double> *state_post, std::vector<double> *cov_post);
   bool measureUpdateIMU(const std::vector<double> &state_pre, const std::vector<double> &cov_pre,
                        std::vector<double> *state_post, std::vector<double> *cov_post);
+                       
+  void limitCovariance(std::vector<double> *vec, double limit);
   
   // Kalman Filter parameters
   double odom_R_v_;

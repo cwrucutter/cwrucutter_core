@@ -137,6 +137,8 @@ private:
   double proc_var_wdot_;
   
   KalmanVelocity central_filter_;
+  KalmanVelocity kf_enc_;
+  KalmanVelocity kf_imu_;
 
   double loop_rate_;
  
@@ -195,11 +197,22 @@ bool SlipDetect::lookupParams()
 bool SlipDetect::initialize()
 {
   
-  // TODO: Check that looprate exists
+  if (loop_rate_ == 0)
+  {
+    ROS_ERROR("Loop rate not specified. Use setLoopRate(double rate) before initializing");
+    return false
+  }
+  
   bool rval = true;
   rval &= central_filter_.initialize(1/loop_rate_, proc_var_v_, proc_var_w_, proc_var_a_, proc_var_wdot_);
   rval &= central_filter_.initializeEncoderNoise(odom_var_v_, odom_var_w_);
   rval &= central_filter_.initializeIMUNoise(imu_var_a_, imu_var_w_);
+  
+  rval &= kf_enc_.initialize(1/loop_rate_, proc_var_v_, proc_var_w_, proc_var_a_, proc_var_wdot_);
+  rval &= kf_enc_.initializeEncoderNoise(odom_var_v_, odom_var_w_);
+  
+  rval &= kf_imu_.initialize(1/loop_rate_, proc_var_v_, proc_var_w_, proc_var_a_, proc_var_wdot_);
+  rval &= kf_imu_.initializeIMUNoise(imu_var_a_, imu_var_w_);
   
   return rval;
 }
@@ -232,7 +245,7 @@ void SlipDetect::filter()
       ROS_INFO("Imu Y: %f, Y average: %f, Stddev: %f, Y-avg: %f", 
                     imu_y,  imu_stat_y_.Mean(), imu_stat_y_.StandardDeviation(), imu_y-imu_stat_y_.Mean());
       ROS_INFO("Odom V: %f, Odom W: %f, fabs(odomv): %f, fabs(odomw): %f", odom_v, odom_w, fabs(odom_v), fabs(odom_w));
-      if (initialized_cnt_++ > 100)
+      if (initialized_cnt_++ > 50)
         initialized_ = true;
       ROS_INFO("Count: %i", initialized_cnt_);
     }
@@ -251,43 +264,68 @@ void SlipDetect::filter()
     {
       no_update = false;
       
-      central_filter_.addMeasurementEncoders(odom_v, odom_w);
-      central_filter_.addMeasurementIMU(x_accel, imu_w);
-      central_filter_.update();
-          
+      //central_filter_.addMeasurementEncoders(odom_v, odom_w);
+      //central_filter_.addMeasurementIMU(x_accel, imu_w);
+      //central_filter_.update();
+      
+      // Update the Encoder Filter
+      kf_enc_.addMeasurementEncoders(odom_v, odom_w);
+      kf_enc_.update();
+      
+      // Update the Auxillary Filter
+      kf_imu_.addMeasurementIMU(x_accel, imu_w);
+      kf_imu_.update();
+      
+      // Fuse the two Filters
+      double Ptot_v, Ptot_w, Ptot_a, Ptot_wdot;
+      double Xtot_v, Xtot_w, Xtot_a, Xtot_wdot;
+      Ptot_v    = kf_enc_.cov_[0]  * kf_imu_.cov_[0]  / (kf_enc_.cov_[0]  + kf_imu_.cov_[0]);
+      Ptot_w    = kf_enc_.cov_[5]  * kf_imu_.cov_[5]  / (kf_enc_.cov_[5]  + kf_imu_.cov_[5]);
+      Ptot_a    = kf_enc_.cov_[10] * kf_imu_.cov_[10] / (kf_enc_.cov_[10] + kf_imu_.cov_[10]);
+      Ptot_wdot = kf_enc_.cov_[15] * kf_imu_.cov_[15] / (kf_enc_.cov_[15] + kf_imu_.cov_[15]);
+      
+      Xtot_v    = Ptot_v / kf_enc_.cov_[0]  * kf_enc_.state_[0]  +  Ptot_v / kf_imu_.cov_[0]  * kf_imu_.state_[0];
+      Xtot_w    = Ptot_w / kf_enc_.cov_[5]  * kf_enc_.state_[1]  +  Ptot_w / kf_imu_.cov_[5]  * kf_imu_.state_[1];
+      Xtot_a    = Ptot_a / kf_enc_.cov_[10] * kf_enc_.state_[2]  +  Ptot_a / kf_imu_.cov_[10] * kf_imu_.state_[2];
+      Xtot_wdot = Ptot_wdot / kf_enc_.cov_[15] * kf_enc_.state_[3]  +  Ptot_wdot / kf_imu_.cov_[15] * kf_imu_.state_[3];
+      
+      ROS_INFO("Enc Cov Diag: [ %f, %f, %f, %f]", kf_enc_.cov_[0], kf_enc_.cov_[5], kf_enc_.cov_[10], kf_enc_.cov_[15]);
+      ROS_INFO("Imu Cov Diag: [ %f, %f, %f, %f]", kf_imu_.cov_[0], kf_imu_.cov_[5], kf_imu_.cov_[10], kf_imu_.cov_[15]);
+      ROS_INFO("Tot Cov Diag: [ %f, %f, %f, %f]", Ptot_v, Ptot_w, Ptot_a, Ptot_wdot);
+      
       // Save off all the debugging info I want
       test.corrected_imu_x = x_accel;
       test.corrected_imu_y = y_accel;
-      test.kf_v = central_filter_.state_[0];
-      test.kf_w = central_filter_.state_[1];
-      test.kf_a = central_filter_.state_[2];
-      test.kf_wdot = central_filter_.state_[3];
-      test.innov_v = central_filter_.odom_innov_v_;
-      test.innov_w = central_filter_.odom_innov_w_;
-      test.innov_imu_a = central_filter_.imu_innov_a_;
-      test.innov_imu_w = central_filter_.imu_innov_w_;
-      test.innov_bound_v = 3*sqrt(central_filter_.odom_cov_v_); // bound on innovation is 3*sigma(v)
-      test.innov_bound_w = 3*sqrt(central_filter_.odom_cov_w_); // bound on innovation is 3*sigma(w)
-      test.innov_bound_imu_a = 3*sqrt(central_filter_.imu_cov_a_); // bound on innovation is 3*sigma(a)
-      test.innov_bound_imu_w = 3*sqrt(central_filter_.imu_cov_w_); // bound on innovation is 3*sigma(w)
-      
+      test.kf_v = Xtot_v;
+      test.kf_w = Xtot_w;
+      test.kf_a = Xtot_a;
+      test.kf_wdot = Xtot_wdot;
+      test.innov_v = Xtot_v - odom_v;
+      test.innov_w = Xtot_w - odom_w;
+      test.innov_imu_a = Xtot_a - x_accel;
+      test.innov_imu_w = Xtot_w - imu_w;
+      test.innov_bound_v = 3*(sqrt(Ptot_v) + odom_var_v_); 
+      test.innov_bound_w = 3*(sqrt(Ptot_w) + odom_var_w_); 
+      test.innov_bound_imu_a = 3*(sqrt(Ptot_a) + imu_var_a_); 
+      test.innov_bound_imu_w = 3*(sqrt(Ptot_w) + imu_var_w_); 
+       
       // Calculate the certainty for each measurement:
-      //    certainty = measurement / sqrt(covariance)
+      //    - certainty = measurement / sqrt(covariance)
       // if meas > 3*sqrt(cov), then there's like a 1% chance or less that 
       // the measurement is correct
       double slip_enc_v, slip_enc_w, slip_gyro, slip_accel = 0;
-      if (fabs(central_filter_.odom_cov_v_)>.001)
-        slip_enc_v = fabs(central_filter_.odom_innov_v_ / sqrt(central_filter_.odom_cov_v_) );
-      if (fabs(central_filter_.odom_cov_w_)>.001)
-        slip_enc_w = fabs(central_filter_.odom_innov_w_ / sqrt(central_filter_.odom_cov_w_) );
-      if (fabs(central_filter_.imu_cov_w_)>.001)
-        slip_gyro  = fabs(central_filter_.imu_innov_w_ / sqrt(central_filter_.imu_cov_w_) );
-      if (fabs(central_filter_.imu_cov_a_)>.001)
-        slip_accel = fabs(central_filter_.imu_innov_a_ / sqrt(central_filter_.imu_cov_a_) );
+      if ( (sqrt(Ptot_v) + odom_var_v_) > .01)
+        slip_enc_v = fabs(Xtot_v - odom_v) / (sqrt(Ptot_v) + odom_var_v_);
+      if ( (sqrt(Ptot_w) + odom_var_w_) > .01)
+        slip_enc_w = fabs(Xtot_w - odom_w) / (sqrt(Ptot_w) + odom_var_w_);
+      if ( (sqrt(Ptot_w) + imu_var_w_) > .01)
+        slip_gyro  = fabs(Xtot_w - imu_w) / (sqrt(Ptot_w) + imu_var_w_) ;
+      if ( (sqrt(Ptot_a) + imu_var_a_) > .01)
+        slip_accel = fabs(Xtot_a - x_accel) / (sqrt(Ptot_a) + imu_var_a_) ;
       
       double max_innov = std::max(std::max(std::max(slip_enc_v,slip_enc_w),slip_gyro),slip_accel);
       slip.slip_enc_v = slip_enc_v;
-      slip.slip_enc_w = slip_enc_v;
+      slip.slip_enc_w = slip_enc_w;
       slip.slip_gyro  = slip_gyro;
       slip.slip_accel = slip_accel;
       slip.slip_max = max_innov;
@@ -295,6 +333,13 @@ void SlipDetect::filter()
         slip.slip = 1;
       else
         slip.slip = 0;
+        
+      // TODO: If we slip, maybe take the other filter out of the fused measurement??
+      
+      // TODO: Implement an "integral term" on the slip.. If we're consistently have a larger
+      //       than expected innovation, this could indicate a slip
+      
+      // TODO: Have this node publish the filtered odometry?? 
       
       slip_pub_.publish(slip);
     }
