@@ -31,21 +31,31 @@
  * Subscribes:
  *   - odom (nav_msgs/Odometry): wheel odometry
  *   - imu/data (sensor_msgs/Imu): IMU output from christa IMU
+ *   - gps_pose (geometry_msgs/PoseStamped): gps output in map frame
  *  
  * Publishes:
+ *   - cwru/testing
+ *   - cwru/slip
  *
  ********************************************************************************/
 
 #include "ros/ros.h"
-#include "message_filters/subscriber.h"
-#include "nav_msgs/Odometry.h"
-#include "sensor_msgs/Imu.h"
 #include "math.h"
-#include "cutter_msgs/Testing.h"
-#include "cutter_msgs/SlipStatus.h"
 #include <vector>
 #include <algorithm>
 #include "kalman_velocity.h"
+
+// Messages
+#include "cutter_msgs/Testing.h"
+#include "cutter_msgs/SlipStatus.h"
+#include "nav_msgs/Odometry.h"
+#include "geometry_msgs/PoseStamped.h"
+#include "sensor_msgs/Imu.h"
+
+// Transform stuff
+#include "tf/tf.h"
+#include "tf/transform_listener.h"
+#include "message_filters/subscriber.h"
 
 // RunningStat class source code from the helpful website:
 // http://www.johndcook.com/standard_deviation.html
@@ -116,12 +126,16 @@ public:
   void setLoopRate(double rate) { loop_rate_ = rate; };
 
 private:
+  void getGPSLeverarm();
+
   // Ros Classes
   ros::Subscriber odom_sub_;
   ros::Subscriber imu_sub_;
+  ros::Subscriber gps_sub_;
   ros::Publisher test_pub_;
   ros::Publisher slip_pub_;
   ros::NodeHandle nh_;
+  tf::TransformListener listener;
   
   RunningStat imu_stat_x_;
   RunningStat imu_stat_y_;
@@ -131,22 +145,30 @@ private:
   double odom_var_w_;
   double imu_var_a_;
   double imu_var_w_;
+  double gps_var_v_;
   double proc_var_v_;
   double proc_var_w_;
   double proc_var_a_;
   double proc_var_wdot_;
+  double gps_leverarm_;
   
   KalmanVelocity central_filter_;
   KalmanVelocity kf_enc_;
-  KalmanVelocity kf_imu_;
+  KalmanVelocity kf_aux_;
 
   double loop_rate_;
  
   // Store odom and imu values from callbacks
   nav_msgs::Odometry last_odom_;
   sensor_msgs::Imu   last_imu_;
+  geometry_msgs::Point old_gps_;
+  geometry_msgs::Point new_gps_;
+  double prev_gps_vel_fix_;
   bool imu_new_;
   bool odom_new_;
+  bool gps_new_;
+  bool use_gps_;
+  bool leverarm_valid_;
   
   // IMU Initialization
   bool initialized_;
@@ -163,6 +185,13 @@ private:
     last_imu_ = *imu;
     imu_new_ = true;
   };
+  
+  void gpsCallback(const geometry_msgs::PoseStamped::ConstPtr& gps)
+  {
+    old_gps_ = new_gps_;
+    new_gps_ = gps->pose.position;
+    gps_new_ = true;
+  };
 
 };
 
@@ -173,8 +202,10 @@ SlipDetect::SlipDetect()
   initialized_ = false;
   odom_new_ = false;
   imu_new_  = false;
+  gps_new_  = false;
   odom_sub_ = nh_.subscribe<nav_msgs::Odometry>("odom",10,&SlipDetect::odomCallback,this);
   imu_sub_  = nh_.subscribe<sensor_msgs::Imu>("imu/data",10,&SlipDetect::imuCallback,this);
+  gps_sub_  = nh_.subscribe<geometry_msgs::PoseStamped>("gps_pose",10,&SlipDetect::gpsCallback,this);
   test_pub_ = nh_.advertise<cutter_msgs::Testing>("cwru/testing",1);
   slip_pub_ = nh_.advertise<cutter_msgs::SlipStatus>("cwru/slip",1);
 };
@@ -186,6 +217,8 @@ bool SlipDetect::lookupParams()
            && ros::param::get("~odom_var_w", odom_var_w_)
            && ros::param::get("~imu_var_a",  imu_var_a_)
            && ros::param::get("~imu_var_w",  imu_var_w_)
+           && ros::param::get("~gps_var_v",  gps_var_v_)
+           && ros::param::get("~use_gps", use_gps_)
            && ros::param::get("~proc_var_v",  proc_var_v_)
            && ros::param::get("~proc_var_w",  proc_var_w_)
            && ros::param::get("~proc_var_a",  proc_var_a_)
@@ -200,7 +233,7 @@ bool SlipDetect::initialize()
   if (loop_rate_ == 0)
   {
     ROS_ERROR("Loop rate not specified. Use setLoopRate(double rate) before initializing");
-    return false
+    return false;
   }
   
   bool rval = true;
@@ -211,20 +244,38 @@ bool SlipDetect::initialize()
   rval &= kf_enc_.initialize(1/loop_rate_, proc_var_v_, proc_var_w_, proc_var_a_, proc_var_wdot_);
   rval &= kf_enc_.initializeEncoderNoise(odom_var_v_, odom_var_w_);
   
-  rval &= kf_imu_.initialize(1/loop_rate_, proc_var_v_, proc_var_w_, proc_var_a_, proc_var_wdot_);
-  rval &= kf_imu_.initializeIMUNoise(imu_var_a_, imu_var_w_);
+  rval &= kf_aux_.initialize(1/loop_rate_, proc_var_v_, proc_var_w_, proc_var_a_, proc_var_wdot_);
+  rval &= kf_aux_.initializeIMUNoise(imu_var_a_, imu_var_w_);
+  rval &= kf_aux_.initializeGPSNoise(gps_var_v_);
   
   return rval;
 }
 
+void SlipDetect::getGPSLeverarm()
+{
+  tf::StampedTransform transform;
+  try{
+    listener.waitForTransform("/base_link", "/base_gps", ros::Time(0), ros::Duration(10.0) );
+    listener.lookupTransform("/base_link", "/base_gps",
+                             ros::Time(0), transform);
+    gps_leverarm_ = transform.getOrigin().x();
+    leverarm_valid_ = true;
+    ROS_INFO("Received gps leverarm: %.3f", gps_leverarm_);
+  }
+  catch (tf::TransformException ex){
+    ROS_ERROR("%s",ex.what());
+  }
+}
+
 void SlipDetect::filter()
 {  
-  double odom_v, odom_w, imu_x, imu_y, imu_w;
+  double odom_v, odom_w, imu_x, imu_y, imu_w, gps_vel_fix, gps_vel;
   odom_v = last_odom_.twist.twist.linear.x;
   odom_w = last_odom_.twist.twist.angular.z;
   imu_x  = last_imu_.linear_acceleration.x;
   imu_y  = last_imu_.linear_acceleration.y;
   imu_w  = last_imu_.angular_velocity.z * M_PI / 180;
+  gps_vel_fix = prev_gps_vel_fix_;
   
   double x_accel, y_accel;
   x_accel = imu_x - imu_stat_x_.Mean();
@@ -233,6 +284,8 @@ void SlipDetect::filter()
   cutter_msgs::Testing test;
   cutter_msgs::SlipStatus slip;
 
+/*
+  // DONT WORRY ABOUT INITIALIZING CAUSE WE'RE NOT USING ACCELEROMETER
   if (imu_new_ && !initialized_)
   {
     if (fabs(odom_v) < .001 && fabs(odom_w) < .001)
@@ -255,108 +308,142 @@ void SlipDetect::filter()
       ROS_INFO("imu: No motion");
     }
     
-  } 
+  } */
   
   bool no_update = true;
   if (odom_new_ && imu_new_)
   {
-    if (initialized_) // Check that IMU has initialized!
+    no_update = false;
+    
+    //central_filter_.addMeasurementEncoders(odom_v, odom_w);
+    //central_filter_.addMeasurementIMU(x_accel, imu_w);
+    //central_filter_.update();
+    
+    // Update the Encoder Filter
+    kf_enc_.addMeasurementEncoders(odom_v, odom_w);
+    kf_enc_.update();
+    
+    // Update the Auxillary Filter
+    kf_aux_.addMeasurementIMU(x_accel, imu_w); // Note x_accel not used in the kalman filter
+    if (gps_new_ && use_gps_)
     {
-      no_update = false;
-      
-      //central_filter_.addMeasurementEncoders(odom_v, odom_w);
-      //central_filter_.addMeasurementIMU(x_accel, imu_w);
-      //central_filter_.update();
-      
-      // Update the Encoder Filter
-      kf_enc_.addMeasurementEncoders(odom_v, odom_w);
-      kf_enc_.update();
-      
-      // Update the Auxillary Filter
-      kf_imu_.addMeasurementIMU(x_accel, imu_w);
-      kf_imu_.update();
-      
-      // Fuse the two Filters
-      double Ptot_v, Ptot_w, Ptot_a, Ptot_wdot;
-      double Xtot_v, Xtot_w, Xtot_a, Xtot_wdot;
-      Ptot_v    = kf_enc_.cov_[0]  * kf_imu_.cov_[0]  / (kf_enc_.cov_[0]  + kf_imu_.cov_[0]);
-      Ptot_w    = kf_enc_.cov_[5]  * kf_imu_.cov_[5]  / (kf_enc_.cov_[5]  + kf_imu_.cov_[5]);
-      Ptot_a    = kf_enc_.cov_[10] * kf_imu_.cov_[10] / (kf_enc_.cov_[10] + kf_imu_.cov_[10]);
-      Ptot_wdot = kf_enc_.cov_[15] * kf_imu_.cov_[15] / (kf_enc_.cov_[15] + kf_imu_.cov_[15]);
-      
-      Xtot_v    = Ptot_v / kf_enc_.cov_[0]  * kf_enc_.state_[0]  +  Ptot_v / kf_imu_.cov_[0]  * kf_imu_.state_[0];
-      Xtot_w    = Ptot_w / kf_enc_.cov_[5]  * kf_enc_.state_[1]  +  Ptot_w / kf_imu_.cov_[5]  * kf_imu_.state_[1];
-      Xtot_a    = Ptot_a / kf_enc_.cov_[10] * kf_enc_.state_[2]  +  Ptot_a / kf_imu_.cov_[10] * kf_imu_.state_[2];
-      Xtot_wdot = Ptot_wdot / kf_enc_.cov_[15] * kf_enc_.state_[3]  +  Ptot_wdot / kf_imu_.cov_[15] * kf_imu_.state_[3];
-      
-      ROS_INFO("Enc Cov Diag: [ %f, %f, %f, %f]", kf_enc_.cov_[0], kf_enc_.cov_[5], kf_enc_.cov_[10], kf_enc_.cov_[15]);
-      ROS_INFO("Imu Cov Diag: [ %f, %f, %f, %f]", kf_imu_.cov_[0], kf_imu_.cov_[5], kf_imu_.cov_[10], kf_imu_.cov_[15]);
-      ROS_INFO("Tot Cov Diag: [ %f, %f, %f, %f]", Ptot_v, Ptot_w, Ptot_a, Ptot_wdot);
-      
-      // Save off all the debugging info I want
-      test.corrected_imu_x = x_accel;
-      test.corrected_imu_y = y_accel;
-      test.kf_v = Xtot_v;
-      test.kf_w = Xtot_w;
-      test.kf_a = Xtot_a;
-      test.kf_wdot = Xtot_wdot;
-      test.innov_v = Xtot_v - odom_v;
-      test.innov_w = Xtot_w - odom_w;
-      test.innov_imu_a = Xtot_a - x_accel;
-      test.innov_imu_w = Xtot_w - imu_w;
-      test.innov_bound_v = 3*(sqrt(Ptot_v) + odom_var_v_); 
-      test.innov_bound_w = 3*(sqrt(Ptot_w) + odom_var_w_); 
-      test.innov_bound_imu_a = 3*(sqrt(Ptot_a) + imu_var_a_); 
-      test.innov_bound_imu_w = 3*(sqrt(Ptot_w) + imu_var_w_); 
-       
-      // Calculate the certainty for each measurement:
-      //    - certainty = measurement / sqrt(covariance)
-      // if meas > 3*sqrt(cov), then there's like a 1% chance or less that 
-      // the measurement is correct
-      double slip_enc_v, slip_enc_w, slip_gyro, slip_accel = 0;
-      if ( (sqrt(Ptot_v) + odom_var_v_) > .01)
-        slip_enc_v = fabs(Xtot_v - odom_v) / (sqrt(Ptot_v) + odom_var_v_);
-      if ( (sqrt(Ptot_w) + odom_var_w_) > .01)
-        slip_enc_w = fabs(Xtot_w - odom_w) / (sqrt(Ptot_w) + odom_var_w_);
-      if ( (sqrt(Ptot_w) + imu_var_w_) > .01)
-        slip_gyro  = fabs(Xtot_w - imu_w) / (sqrt(Ptot_w) + imu_var_w_) ;
-      if ( (sqrt(Ptot_a) + imu_var_a_) > .01)
-        slip_accel = fabs(Xtot_a - x_accel) / (sqrt(Ptot_a) + imu_var_a_) ;
-      
-      double max_innov = std::max(std::max(std::max(slip_enc_v,slip_enc_w),slip_gyro),slip_accel);
-      slip.slip_enc_v = slip_enc_v;
-      slip.slip_enc_w = slip_enc_w;
-      slip.slip_gyro  = slip_gyro;
-      slip.slip_accel = slip_accel;
-      slip.slip_max = max_innov;
-      if (max_innov > 3) // Slip if the max innovation is > 3
-        slip.slip = 1;
+      if (!leverarm_valid_)
+      {
+        getGPSLeverarm();     
+      }
       else
-        slip.slip = 0;
-        
-      // TODO: If we slip, maybe take the other filter out of the fused measurement??
-      
-      // TODO: Implement an "integral term" on the slip.. If we're consistently have a larger
-      //       than expected innovation, this could indicate a slip
-      
-      // TODO: Have this node publish the filtered odometry?? 
-      
-      slip_pub_.publish(slip);
+      {
+        double xoff, yoff, gps_dist;
+        xoff = new_gps_.x - old_gps_.x;
+        yoff = new_gps_.y - old_gps_.y;
+        // GpsDist = new gps - old gps
+        gps_dist = sqrt( xoff*xoff + yoff*yoff );
+        // GpsVel  = GpsDist / 0.1   <--- Distance / GPS DT where GPS DT = 10 Hz or 0.1 s
+        gps_vel  = gps_dist / 0.1;
+        // GpsVelFix = sqrt( GpsVel^2 - (r*w)^2 )   <--- Ie, subtract out component of motion due to angular velocity
+        gps_vel_fix = sqrt( gps_vel*gps_vel  -  gps_leverarm_*gps_leverarm_*imu_w*imu_w );
+        if (odom_v < 0)
+          gps_vel_fix = - gps_vel_fix;
+        ROS_INFO("GPS Velocity: %f, Odom Velocity: %f", gps_vel_fix, odom_v);
+        prev_gps_vel_fix_ = gps_vel_fix;
+        kf_aux_.addMeasurementGPS(gps_vel_fix);
+        gps_new_ = false; 
+      }
     }
+    kf_aux_.update();
+    
+    // Fuse the two Filters
+    double Ptot_v, Ptot_w, Ptot_a, Ptot_wdot;
+    double Xtot_v, Xtot_w, Xtot_a, Xtot_wdot;
+    Ptot_v    = kf_enc_.cov_[0]  * kf_aux_.cov_[0]  / (kf_enc_.cov_[0]  + kf_aux_.cov_[0]);
+    Ptot_w    = kf_enc_.cov_[5]  * kf_aux_.cov_[5]  / (kf_enc_.cov_[5]  + kf_aux_.cov_[5]);
+    Ptot_a    = kf_enc_.cov_[10] * kf_aux_.cov_[10] / (kf_enc_.cov_[10] + kf_aux_.cov_[10]);
+    Ptot_wdot = kf_enc_.cov_[15] * kf_aux_.cov_[15] / (kf_enc_.cov_[15] + kf_aux_.cov_[15]);
+    
+    Xtot_v    = Ptot_v / kf_enc_.cov_[0]  * kf_enc_.state_[0]  +  Ptot_v / kf_aux_.cov_[0]  * kf_aux_.state_[0];
+    Xtot_w    = Ptot_w / kf_enc_.cov_[5]  * kf_enc_.state_[1]  +  Ptot_w / kf_aux_.cov_[5]  * kf_aux_.state_[1];
+    Xtot_a    = Ptot_a / kf_enc_.cov_[10] * kf_enc_.state_[2]  +  Ptot_a / kf_aux_.cov_[10] * kf_aux_.state_[2];
+    Xtot_wdot = Ptot_wdot / kf_enc_.cov_[15] * kf_enc_.state_[3]  +  Ptot_wdot / kf_aux_.cov_[15] * kf_aux_.state_[3];
+    
+    ROS_INFO("Enc Cov Diag: [ %f, %f, %f, %f]", kf_enc_.cov_[0], kf_enc_.cov_[5], kf_enc_.cov_[10], kf_enc_.cov_[15]);
+    ROS_INFO("Enc State: [ %f, %f, %f, %f]", kf_enc_.state_[0], kf_enc_.state_[1], kf_enc_.state_[2], kf_enc_.state_[3]);
+    ROS_INFO("Aux Cov Diag: [ %f, %f, %f, %f]", kf_aux_.cov_[0], kf_aux_.cov_[5], kf_aux_.cov_[10], kf_aux_.cov_[15]);
+    ROS_INFO("Aux State: [ %f, %f, %f, %f]", kf_aux_.state_[0], kf_aux_.state_[1], kf_aux_.state_[2], kf_aux_.state_[3]);
+    ROS_INFO("Tot Cov Diag: [ %f, %f, %f, %f]", Ptot_v, Ptot_w, Ptot_a, Ptot_wdot);
+    ROS_INFO("Tot State: [ %f, %f, %f, %f]", Xtot_v, Xtot_w, Xtot_a, Xtot_wdot);
+    //ROS_INFO("P_v_enc: %f, P_v_aux: %f, P_a_enc: %f, P_a_aux: %f", Ptot_v / kf_enc_.cov_[0], Ptot_v / kf_aux_.cov_[0], Ptot_a / kf_enc_.cov_[10], Ptot_a / kf_aux_.cov_[10]);
+    
+    // Save off all the debugging info I want
+    test.corrected_imu_x = x_accel;
+    test.corrected_imu_y = y_accel;
+    test.kf_v = Xtot_v;
+    test.kf_w = Xtot_w;
+    test.kf_a = Xtot_a;
+    test.kf_wdot = Xtot_wdot;
+    test.innov_v = Xtot_v - odom_v;
+    test.innov_w = Xtot_w - odom_w;
+    test.innov_imu_a = Xtot_a - x_accel;
+    test.innov_imu_w = Xtot_w - imu_w;
+    //test.innov_v = kf_aux_.state_[0] - odom_v;
+    //test.innov_w = kf_aux_.state_[1] - odom_w;
+    //test.innov_imu_a = kf_enc_.state_[2] - x_accel;
+    //test.innov_imu_w = kf_enc_.state_[1] - imu_w;    
+    test.innov_bound_v = 3*(sqrt(Ptot_v) + odom_var_v_); 
+    test.innov_bound_w = 3*(sqrt(Ptot_w) + odom_var_w_); 
+    test.innov_bound_imu_a = 3*(sqrt(Ptot_a) + imu_var_a_); 
+    test.innov_bound_imu_w = 3*(sqrt(Ptot_w) + imu_var_w_);
+    test.gpsvelfix = gps_vel_fix;
+    test.gpsvel = gps_vel;
+    test.odomvel = odom_v;
+     
+    // Calculate the certainty for each measurement:
+    //     certainty = measurement / sqrt(covariance)
+    // if meas > 3*sqrt(cov), then there's like a 1% chance or less that 
+    // the measurement is correct
+    double slip_enc_v, slip_enc_w, slip_gyro, slip_accel = 0;
+    if ( (sqrt(Ptot_v) + odom_var_v_) > .001)
+      slip_enc_v = fabs(test.innov_v) / (sqrt(Ptot_v) + odom_var_v_);
+    if ( (sqrt(Ptot_w) + odom_var_w_) > .001)
+      slip_enc_w = fabs(test.innov_w) / (sqrt(Ptot_w) + odom_var_w_);
+    if ( (sqrt(Ptot_w) + imu_var_w_) > .001)
+      slip_gyro  = fabs(test.innov_imu_w) / (sqrt(Ptot_w) + imu_var_w_) ;
+    if ( (sqrt(Ptot_a) + imu_var_a_) > .001)
+      slip_accel = fabs(test.innov_imu_a) / (sqrt(Ptot_a) + imu_var_a_) ;
+    
+    double max_innov = std::max(std::max(std::max(slip_enc_v,slip_enc_w),slip_gyro),slip_accel);
+    slip.slip_enc_v = slip_enc_v;
+    slip.slip_enc_w = slip_enc_w;
+    slip.slip_gyro  = slip_gyro;
+    slip.slip_accel = slip_accel;
+    slip.slip_max = max_innov;
+    if (max_innov > 3) // Slip if the max innovation is > 3
+      slip.slip = 1;
+    else
+      slip.slip = 0;
+      
+    // TODO: If we slip, maybe take the other filter out of the fused measurement??
+    
+    // TODO: Implement an "integral term" on the slip.. If we're consistently have a larger
+    //       than expected innovation, this could indicate a slip
+    
+    // TODO: Have this node publish the filtered odometry?? 
+    
+    slip_pub_.publish(slip);
+    
+    imu_new_ = false;
+    odom_new_ = false;
+    gps_new_ = false;
   }
-  
-  imu_new_ = false;
-  odom_new_ = false;
 
   if (no_update)
   {
     // Populate the kalman filter variables with the last state
     test.corrected_imu_x = x_accel;
     test.corrected_imu_y = y_accel;
-    test.kf_v = central_filter_.state_[0];
-    test.kf_w = central_filter_.state_[1];
-    test.kf_a = central_filter_.state_[2];
-    test.kf_wdot = central_filter_.state_[3];
+    test.kf_v = 0;
+    test.kf_w = 0;
+    test.kf_a = 0;
+    test.kf_wdot = 0;
   }
 
   test_pub_.publish(test);
@@ -369,6 +456,7 @@ int main(int argc, char ** argv)
   ros::init(argc, argv, "slip_detect"); //Init ROS
   SlipDetect detector; //Construct class
 
+  printf("%i \n", __LINE__);
   double looprate = 20;
   ros::Rate loop_rate(looprate);
   detector.setLoopRate(looprate);
@@ -378,12 +466,14 @@ int main(int argc, char ** argv)
     return 0;
   }
     
+  printf("%i \n", __LINE__);
   if (!detector.initialize())
   {
     ROS_ERROR("Could not initialize filter");
     return 0;
   }
 
+  printf("%i \n", __LINE__);
   while (ros::ok())
   {
     ros::spinOnce();

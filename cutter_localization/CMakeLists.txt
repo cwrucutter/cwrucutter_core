@@ -29,7 +29,6 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 #rosbuild_add_executable(example examples/example.cpp)
 rosbuild_add_executable(odometry src/cutter_odometry.cpp)
 rosbuild_add_executable(amcl_init src/amcl_init.cpp)
-rosbuild_add_executable(slip_detect src/slip_detect.cpp)
 
 rosbuild_add_boost_directories()
 rosbuild_add_executable(localization_evaluation src/localization_evaluation.cpp)

@@ -46,9 +46,11 @@ public:
   KalmanVelocity(); 
   bool initialize(double dt, double proc_var_v, double proc_var_w, double proc_var_a, double proc_var_wdot);
   bool initializeEncoderNoise(double odom_var_v, double odom_var_w);
-  bool initializeIMUNoise(double odom_var_v, double odom_var_w); 
+  bool initializeIMUNoise(double imu_var_a, double imu_var_w); 
+  bool initializeGPSNoise(double gps_var_v); 
   bool addMeasurementEncoders(double odom_v, double odom_w);
   bool addMeasurementIMU(double imu_a, double imu_w);
+  bool addMeasurementGPS(double gps_v);
   bool update();
   
   // Kalman Filter Variables
@@ -62,6 +64,8 @@ public:
   double imu_innov_w_;
   double imu_cov_a_;
   double imu_cov_w_;
+  double gps_innov_v_;
+  double gps_cov_v_;
   
 private:
   // Kalman filter functions
@@ -72,6 +76,8 @@ private:
                            std::vector<double> *state_post, std::vector<double> *cov_post);
   bool measureUpdateIMU(const std::vector<double> &state_pre, const std::vector<double> &cov_pre,
                        std::vector<double> *state_post, std::vector<double> *cov_post);
+  bool measureUpdateGPS(const std::vector<double> &state_pre, const std::vector<double> &cov_pre,
+                       std::vector<double> *state_post, std::vector<double> *cov_post);
                        
   void limitCovariance(std::vector<double> *vec, double limit);
   
@@ -80,12 +86,14 @@ private:
   double odom_R_w_;
   double imu_R_a_;
   double imu_R_w_;
+  double gps_R_v_;
   double proc_Q_v_;
   double proc_Q_w_;
   double proc_Q_a_;
   double proc_Q_wdot_;
   bool odom_init_;
   bool imu_init_;
+  bool gps_init_;
   double dt_;
   
   
@@ -94,6 +102,8 @@ private:
   double odom_w_;
   double imu_a_;
   double imu_w_;
+  double gps_v_;
   bool odom_new_;
   bool imu_new_;
+  bool gps_new_;
 };

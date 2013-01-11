@@ -12,3 +12,6 @@ float64 innov_imu_a
 float64 innov_imu_w
 float64 innov_bound_imu_a
 float64 innov_bound_imu_w
+float64 gpsvelfix
+float64 gpsvel
+float64 odomvel

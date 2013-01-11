@@ -9,6 +9,7 @@
   <review status="unreviewed" notes=""/>
   <url>http://ros.org/wiki/cutter_slip_detect</url>
   <depend package="roscpp"/>
+  <depend package="tf"/>
   <depend package="cutter_msgs"/>
 
 </package>

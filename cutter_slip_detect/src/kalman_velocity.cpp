@@ -44,14 +44,18 @@ state_(4),cov_(16)
   odom_new_ = false;
   imu_init_ = false;
   imu_new_ = false;
+  gps_init_ = false;
+  gps_new_ = false;
   odom_innov_v_ = 0;
   odom_innov_w_ = 0;
   imu_innov_a_ = 0;
   imu_innov_w_ = 0;
+  gps_innov_v_ = 0;
   odom_cov_v_ = 0;
   odom_cov_w_ = 0;
   imu_cov_a_ = 0;
   imu_cov_w_ = 0;
+  gps_cov_v_ = 0;
 };
 
 bool KalmanVelocity::initialize(double dt, double proc_var_v, double proc_var_w, double proc_var_a, double proc_var_wdot)
@@ -88,6 +92,13 @@ bool KalmanVelocity::initializeIMUNoise(double imu_var_a, double imu_var_w)
   return true;
 }
 
+bool KalmanVelocity::initializeGPSNoise(double gps_var_v)
+{
+  gps_R_v_ = gps_var_v;
+  gps_init_ = true;
+  return true;
+}
+
 bool KalmanVelocity::addMeasurementEncoders(double odom_v, double odom_w)
 {
   if (!odom_init_)
@@ -114,6 +125,18 @@ bool KalmanVelocity::addMeasurementIMU(double imu_a, double imu_w)
   return true;
 }
 
+bool KalmanVelocity::addMeasurementGPS(double gps_v)
+{
+  if (!gps_init_)
+  {
+    ROS_ERROR("Tried to add GPS measurement before initializing");
+    return false;
+  }
+  gps_v_ = gps_v;
+  gps_new_ = true;
+  return true;
+}
+
 bool KalmanVelocity::update()
 {
   // Perform the prediction and measurement update states for the Kalman filter
@@ -136,7 +159,7 @@ bool KalmanVelocity::update()
   //ROS_INFO("Cov Pre: [ %f, %f, %f, %f]", cov_pre[0], cov_pre[5], cov_pre[10], cov_pre[15]);
   
   // MEASUREMENT UPDATE
-  if (odom_new_ || imu_new_) // Only if new data is received
+  if (odom_new_ || imu_new_ || gps_new_) // Only if new data is received
   {
     // measureKF 
     measureKF(state_pre, cov_pre, &state_post, &cov_post);
@@ -183,7 +206,7 @@ bool KalmanVelocity::predictKF(std::vector<double> *state_pre, std::vector<doubl
   cov_pre->at(13) = cov_[15]*dt_;
   cov_pre->at(15) = cov_[15] + proc_Q_wdot_*dt_;
   
-  limitCovariance(cov_pre, 15);
+  limitCovariance(cov_pre, 50);
   
   return true;
 }
@@ -194,9 +217,9 @@ bool KalmanVelocity::measureKF(const std::vector<double> &state_pre, const std::
   // Measurement Update results are returned
   //  inside the populated state_post and cov_post
   
-  if (!(state_pre->size() && cov_pre->size() && state_post.size() && cov_post.size()))
+  if (!(state_pre.size() && cov_pre.size() && state_post->size() && cov_post->size()))
   {
-    // I'm just assuming that if the vectors are initialized then they'll be the right size
+    // I'm assuming that if the vectors are initialized then they'll be the right size 
     ROS_ERROR("Must initialize vectors in KalmanVelocity::measureKF()");
     return false;
   }
@@ -224,6 +247,16 @@ bool KalmanVelocity::measureKF(const std::vector<double> &state_pre, const std::
   {
     measureUpdateIMU(state_in, cov_in, state_post, cov_post);
     imu_new_ = false;
+  }
+  
+  // Save vectors
+  state_in = *state_post;
+  cov_in = *cov_post;
+  
+  if (gps_new_) // Perform Auxillary update if necessary
+  {
+    measureUpdateGPS(state_in, cov_in, state_post, cov_post);
+    gps_new_ = false;
   }
   
   return true;
@@ -260,6 +293,29 @@ bool KalmanVelocity::measureUpdateEncoder(const std::vector<double> &state_pre, 
   return true;
 }
 
+bool KalmanVelocity::measureUpdateGPS(const std::vector<double> &state_pre, const std::vector<double> &cov_pre,
+                                      std::vector<double> *state_post, std::vector<double> *cov_post)
+{
+  // GPS UPDATE  
+  // Propagate Covariance to P+ (after measurement update): All elements
+  // GPS velocity update only
+  gps_cov_v_ = cov_pre[0] + gps_R_v_;
+  cov_post->at(0)  = cov_pre[0] - cov_pre[0] * cov_pre[0] / gps_cov_v_; 
+  cov_post->at(2)  = cov_pre[2] - cov_pre[0] * cov_pre[2] / gps_cov_v_;
+  cov_post->at(8)  = cov_pre[8] - cov_pre[8] * cov_pre[0] / gps_cov_v_; 
+  cov_post->at(10) = cov_pre[10]- cov_pre[8] * cov_pre[2] / gps_cov_v_;
+
+  // Calculate odometry residual
+  gps_innov_v_ = gps_v_ - state_pre[0];
+
+  // Measurement update
+  state_post->at(0) = state_pre[0] + gps_innov_v_ * cov_[0] / gps_R_v_;
+  state_post->at(2) = state_pre[2] + gps_innov_v_ * cov_[8] / gps_R_v_;  
+
+  //ROS_INFO("Gps meas: V: %f, W: %f", odom_v_, odom_w_);
+  return true;
+}
+
 bool KalmanVelocity::measureUpdateIMU(const std::vector<double> &state_pre, const std::vector<double> &cov_pre,
                                        std::vector<double> *state_post, std::vector<double> *cov_post)
 {  
@@ -270,7 +326,7 @@ bool KalmanVelocity::measureUpdateIMU(const std::vector<double> &state_pre, cons
   // IMU UPDATE
   // Propagate Covariance to P+ (after measurement update): All elements
   // IMU update only
-  imu_cov_a_ = cov_pre[10]+ imu_R_a_;
+  //imu_cov_a_ = cov_pre[10]+ imu_R_a_;
   imu_cov_w_ = cov_pre[5] + imu_R_w_;
   cov_post->at(5)  = cov_pre[5] - cov_pre[5] * cov_pre[5] / imu_cov_w_; 
   cov_post->at(7)  = cov_pre[7] - cov_pre[5] * cov_pre[7] / imu_cov_w_; 
@@ -282,7 +338,7 @@ bool KalmanVelocity::measureUpdateIMU(const std::vector<double> &state_pre, cons
   //cov_post->at(10) = cov_pre[10]- cov_pre[10]* cov_pre[10]/ imu_cov_a_; 
       
   // Calculate imu residual
-  imu_innov_a_ = imu_a_ - state_pre[3];
+  //imu_innov_a_ = imu_a_ - state_pre[3];
   imu_innov_w_ = imu_w_ - state_pre[1];
   
   // Measurement update
