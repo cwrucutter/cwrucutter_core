@@ -400,7 +400,7 @@ void SlipDetect::filter()
     //     certainty = measurement / sqrt(covariance)
     // if meas > 3*sqrt(cov), then there's like a 1% chance or less that 
     // the measurement is correct
-    double slip_enc_v, slip_enc_w, slip_gyro, slip_accel = 0;
+    double slip_enc_v, slip_enc_w, slip_gyro, slip_accel, slip_gps_v = 0;
     if ( (sqrt(Ptot_v) + odom_var_v_) > .001)
       slip_enc_v = fabs(test.innov_v) / (sqrt(Ptot_v) + odom_var_v_);
     if ( (sqrt(Ptot_w) + odom_var_w_) > .001)
@@ -409,13 +409,16 @@ void SlipDetect::filter()
       slip_gyro  = fabs(test.innov_imu_w) / (sqrt(Ptot_w) + imu_var_w_) ;
     if ( (sqrt(Ptot_a) + imu_var_a_) > .001)
       slip_accel = fabs(test.innov_imu_a) / (sqrt(Ptot_a) + imu_var_a_) ;
+    if ( (sqrt(Ptot_v) + gps_var_v_) > .001)
+      slip_gps_v = fabs(Xtot_v - gps_vel_fix) / (sqrt(Ptot_v) + gps_var_v_) ;
     
-    double max_innov = std::max(std::max(std::max(slip_enc_v,slip_enc_w),slip_gyro),slip_accel);
-    slip.slip_enc_v = slip_enc_v;
-    slip.slip_enc_w = slip_enc_w;
-    slip.slip_gyro  = slip_gyro;
-    slip.slip_accel = slip_accel;
-    slip.slip_max = max_innov;
+    double max_innov = std::max(std::max(std::max(std::max(slip_enc_v, slip_gps_v),slip_enc_w),slip_gyro),slip_accel);
+    slip.slip_enc_v = slip_enc_v/3;
+    slip.slip_enc_w = slip_enc_w/3;
+    slip.slip_gyro  = slip_gyro/3;
+    slip.slip_accel = slip_accel/3;
+    slip.slip_gps_v = slip_gps_v/3;
+    slip.slip_max = max_innov/3;
     if (max_innov > 3) // Slip if the max innovation is > 3
       slip.slip = 1;
     else
