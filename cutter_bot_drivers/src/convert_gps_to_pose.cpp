@@ -34,7 +34,7 @@
  *   - odom (nav_msgs/Odometry): Odometry measurement
  *  
  * Publishes:
- *   - state (cutter_msgs/State): Current state of the robot in the /map frame
+ *   - gps_pose (geometry_msgs/PoseStamped): Current state of the robot in the /map frame
  *
  * Broadcasts:
  *   - map->odom transform: Odometry correction

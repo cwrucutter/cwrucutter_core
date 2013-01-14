@@ -2,7 +2,8 @@
 <launch>
 
    <!-- Start the planning node -->
-   <node pkg="cutter_planning" type="planner" name="basic_planning" output="screen"/>
+   <!-- node pkg="cutter_planning" type="planner" name="basic_planning" output="screen"/ -->
+   <include file="$(find cutter_planning)/start_planning.launch" />
    
    <!-- Start the steering node --> 
    <include file="$(find cutter_steering)/start_steering.launch" />
