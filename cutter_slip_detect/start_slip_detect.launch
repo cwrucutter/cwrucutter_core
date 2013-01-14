@@ -1,0 +1,14 @@
+<launch>
+  <node pkg="cutter_slip_detect" type="slip_detect" name="slip_detector" output="screen">
+    <param name="use_gps" value="true" type="bool" />
+    <param name="odom_var_v" value=".02" type="double"/>
+    <param name="odom_var_w" value=".03" type="double"/>
+    <param name="imu_var_a" value="3" type="double"/>
+    <param name="imu_var_w" value=".06" type="double"/>
+    <param name="gps_var_v" value=".03" type="double"/>
+    <param name="proc_var_v" value=".02" type="double"/>
+    <param name="proc_var_w" value=".04" type="double"/>
+    <param name="proc_var_a" value=".4" type="double"/>
+    <param name="proc_var_wdot" value=".4" type="double"/>
+  </node>
+</launch>

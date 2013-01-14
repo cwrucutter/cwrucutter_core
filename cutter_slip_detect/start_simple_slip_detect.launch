@@ -1,0 +1,6 @@
+<launch>
+  <node pkg="cutter_slip_detect" type="slip_detect_simple" name="slip_detector_simple" output="screen">
+    <param name="avg_window" value="1.0" type="double" />
+    <param name="slip_threshold" value="4.0" type="double" />
+  </node>
+</launch>
