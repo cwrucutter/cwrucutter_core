@@ -1,4 +1,4 @@
-include "pioneer.inc"
+
 define block model
 (
   size [0.5 0.5 2]

@@ -100,7 +100,7 @@ private:
 
 int main(int argc, char ** argv)
 {
-  ros::init(argc, argv, "localization_evaluation"); //Init ROS
+  ros::init(argc, argv, "amcl_to_state"); //Init ROS
   AmclToState converter; //Construct class
   ros::spin(); // Run until interupted 
 };

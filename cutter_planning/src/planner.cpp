@@ -102,7 +102,9 @@ CutterPlanner::CutterPlanner()
   ROS_INFO("Got file %s", file.c_str());
   std::string path = ros::package::getPath("cutter_planning");
 
-  readWayPointsFromFile(path + "/src/" + file);
+  
+  
+  readWayPointsFromFile(path + "/WP/" + file);
 
   ROS_INFO("Advertising service");
   wp_srv_ = nh_.advertiseService("get_waypoint", &CutterPlanner::getWayPointService, this );

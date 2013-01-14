@@ -17,7 +17,7 @@ set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
 #uncomment if you have defined messages
-#rosbuild_genmsg()
+rosbuild_genmsg()
 #uncomment if you have defined services
 #rosbuild_gensrv()
 
@@ -27,16 +27,4 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 #rosbuild_add_boost_directories()
 #rosbuild_link_boost(${PROJECT_NAME} thread)
 #rosbuild_add_executable(example examples/example.cpp)
-rosbuild_add_executable(odometry src/cutter_odometry.cpp)
-rosbuild_add_executable(amcl_init src/amcl_init.cpp)
-
-rosbuild_add_boost_directories()
-rosbuild_add_executable(localization_evaluation src/localization_evaluation.cpp)
-rosbuild_add_executable(amcl_to_state src/amcl_to_state.cpp)
-rosbuild_add_executable(filter_test src/filter_test.cpp)
-rosbuild_link_boost(localization_evaluation signals)
-rosbuild_link_boost(amcl_to_state signals)
-rosbuild_link_boost(filter_test signals)
-
-####rosbuild_add_executable(localization_dgps src/localization_dgps.cpp)
 #target_link_libraries(example ${PROJECT_NAME})
