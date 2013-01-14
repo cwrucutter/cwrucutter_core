@@ -15,3 +15,9 @@ float64 innov_bound_imu_w
 float64 gpsvelfix
 float64 gpsvel
 float64 odomvel
+float64 slip_enc_v
+float64 slip_enc_w
+float64 slip_gyro
+float64 slip_accel
+float64 slip_gps_v
+float64 slip_max

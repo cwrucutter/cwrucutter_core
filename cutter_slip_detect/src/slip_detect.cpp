@@ -413,11 +413,12 @@ void SlipDetect::filter()
       slip_gps_v = fabs(Xtot_v - gps_vel_fix) / (sqrt(Ptot_v) + gps_var_v_) ;
     
     double max_innov = std::max(std::max(std::max(std::max(slip_enc_v, slip_gps_v),slip_enc_w),slip_gyro),slip_accel);
-    slip.slip_enc_v = slip_enc_v/3;
-    slip.slip_enc_w = slip_enc_w/3;
-    slip.slip_gyro  = slip_gyro/3;
-    slip.slip_accel = slip_accel/3;
-    slip.slip_gps_v = slip_gps_v/3;
+    test.slip_enc_v = slip_enc_v/3;
+    test.slip_enc_w = slip_enc_w/3;
+    test.slip_gyro  = slip_gyro/3;
+    test.slip_accel = slip_accel/3;
+    test.slip_gps_v = slip_gps_v/3;
+    test.slip_max = max_innov/3;
     slip.slip_max = max_innov/3;
     if (max_innov > 3) // Slip if the max innovation is > 3
       slip.slip = 1;
@@ -459,7 +460,6 @@ int main(int argc, char ** argv)
   ros::init(argc, argv, "slip_detect"); //Init ROS
   SlipDetect detector; //Construct class
 
-  printf("%i \n", __LINE__);
   double looprate = 20;
   ros::Rate loop_rate(looprate);
   detector.setLoopRate(looprate);
@@ -468,15 +468,13 @@ int main(int argc, char ** argv)
     ROS_ERROR("Parameters not found");
     return 0;
   }
-    
-  printf("%i \n", __LINE__);
+  
   if (!detector.initialize())
   {
     ROS_ERROR("Could not initialize filter");
     return 0;
   }
 
-  printf("%i \n", __LINE__);
   while (ros::ok())
   {
     ros::spinOnce();
