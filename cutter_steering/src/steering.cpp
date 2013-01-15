@@ -271,14 +271,14 @@ void CutterSteering::steer()
 
   ROS_INFO("Robot (%.2f,%2f), Intitial position of robot was (%.2f,%.2f), distance to next waypoint (%.2f,%.2f): %f", map_pose_.position.x, map_pose_.position.y, initialX, initialY, target_waypoint_.pose.position.x, target_waypoint_.pose.position.y, targetDistance);
 
-  if (xDistance == 0 || yDistance == 0)
+  if (xDistance == 0 || yDistance == 0)//TODO: Tom has no idea what this thing is. The velocity will be set to 5 if it is triggered, causing the robot to spiral out of control.
   {
     ROS_WARN("Starting up? xDistance or yDistance from robot to waypoint is 0!!");
     targetTheta = 0;
   }
   else
   {
-    targetTheta = atan2(yDistance, xDistance);
+    targetTheta = atan2(yDistance * (target_waypoint_.direction - 2.0), xDistance * (target_waypoint_.direction - 2.0));
   }
 
   robotTheta = tf::getYaw(map_pose_.orientation);
@@ -344,7 +344,7 @@ void CutterSteering::steer()
       ROS_INFO("found theta diff: %f", thetaError);
       if(initial_align){//If the robot has not begun its jorney to the target, we want it to turn and face said target.
 	ROS_INFO("In initial rotational alignment stage.");
-	v = 0;
+	v = 0.0;
         w = -K_wth_proportional_*thetaError;
         ROS_INFO("Set w: %f", w);
 	initial_align = (fabs(thetaError) > 0.1);
@@ -362,9 +362,9 @@ void CutterSteering::steer()
     
     //stay within limits
     w = profile(w, last_cmd_vel_.angular.z, w_max_, w_a_max_);
-    v = profile(v, last_cmd_vel_.linear.x, v_max_, v_a_max_);
+    v = profile(v * (target_waypoint_.direction - 2.0), last_cmd_vel_.linear.x, v_max_, v_a_max_);
 
-    ROS_INFO("profiled w: %f", w);
+    ROS_INFO("profiled v: %f", v);
   }
 
   publishVW(v,w);

@@ -62,8 +62,10 @@ void CutterPlanner::parseStringFormat(std::string line, cutter_msgs::WayPoint &t
       tempWP.pose.orientation = tf::createQuaternionMsgFromYaw(strtod(line.substr(lastcomma, line.find_first_of(",", lastcomma)-lastcomma).c_str(), NULL));
       lastcomma = line.find_first_of(",",lastcomma + 1)+1;
       tempWP.distanceTol = strtod(line.substr(lastcomma, line.find_first_of(",", lastcomma)-lastcomma).c_str(), NULL);
-      ROS_INFO("WAYPOINT DTOL VALUE IS %f", tempWP.distanceTol);
-      tempWP.direction = (strtod(line.substr(line.find_first_of(")")-1, 1).c_str(), NULL) == 1);
+      //ROS_INFO("WAYPOINT DTOL VALUE IS %f", tempWP.distanceTol);
+      //ROS_INFO("Recovered direction string %s", line.substr(line.find_first_of(")")-1, 1).c_str());
+      tempWP.direction = (strtod(line.substr(line.find_first_of(")")-1, 1).c_str(), NULL));//Directional tag. 0 for foreward, 1 for reverse. Since this uses doubles (because I am lazy), other values will work, but will cause odd behavior.
+      //ROS_INFO("WAYPOINT REVERSE VALUE IS %f", strtod(line.substr(line.find_first_of(")")-1, 1).c_str(), NULL));
 }
 bool CutterPlanner::readWayPointsFromFile(std::string filename)
 {
