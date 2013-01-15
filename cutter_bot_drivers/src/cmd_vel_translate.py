@@ -37,27 +37,44 @@ roslib.load_manifest('cutter_bot_drivers')
 import rospy
 from cutter_msgs.msg import VelCmd
 from geometry_msgs.msg import Twist
-       
-def callback(data,pub):
-    #rospy.loginfo('callback called')
-    cmd_vel = VelCmd()
-    cmd_vel.linear  = data.linear.x*1000.0
-    cmd_vel.angular = data.angular.z*1000.0
-    pub.publish(cmd_vel)
 
-def translator():
-    rospy.init_node('cmd_vel_translator')
-    topic_out = rospy.get_param('~topic_out','/cwru/cmd_vel')
-    topic_in  = rospy.get_param('~topic_in','/cmd_vel')
-    rospy.loginfo('Publishing to: '+topic_out)
-    rospy.loginfo('Subscribing to: '+topic_in)
+class VelTranslator():
 
-    pub = rospy.Publisher(topic_out,VelCmd)
-    rospy.Subscriber(topic_in, Twist, callback, pub)
-    rospy.spin()
+  def __init__(self):
+      rospy.init_node('cmd_vel_translator')
+      topic_out = rospy.get_param('~topic_out','/cwru/cmd_vel')
+      topic_in  = rospy.get_param('~topic_in','/cmd_vel')
+      rospy.loginfo('Publishing to: '+topic_out)
+      rospy.loginfo('Subscribing to: '+topic_in)
+      
+      self.vel_called = False
+
+      self.pub = rospy.Publisher(topic_out,VelCmd)
+      rospy.Subscriber(topic_in, Twist, self.callback)
+      
+      while not rospy.is_shutdown():
+        print self.vel_called
+        if not self.vel_called:
+          cmd_vel = VelCmd()
+          cmd_vel.linear = 0
+          cmd_vel.angular = 0 
+          self.pub.publish(cmd_vel)
+        self.vel_called = False
+        rospy.sleep(.5)
+         
+  def callback(self,data): 
+      self.vel_called = True
+      cmd_vel = VelCmd()
+      cmd_vel.linear  = data.linear.x*1000.0
+      cmd_vel.angular = data.angular.z*1000.0
+      if cmd_vel.linear > 2000:
+         cmd_vel.linear = 2000
+      if cmd_vel.linear < -2000:
+         cmd_vel.linear = -2000
+      self.pub.publish(cmd_vel)
 
 if __name__ == "__main__":
     try:
-        translator()
+        VelTranslator()
     except rospy.ROSInterruptException: pass
 
