@@ -600,6 +600,7 @@ int AmclNode::process()
   }
 
   // 2. PARTICLE FILTER ODOMETRY UPDATE
+  // If the robot has moved, update the filter
   bool force_publication = false;
   if(!pf_init_)
   {
@@ -611,17 +612,17 @@ int AmclNode::process()
 
     // Should update sensor data
     pf_update_ = true;
-
     force_publication = true;
 
     resample_count_ = 0;
   }
-  // If the robot has moved, update the filter
   else if(pf_init_ && pf_update_)
   {
-    printf("Odometry Update\n");
     AMCLOdomData odata;
     odata.pose = pose;
+    
+    // Store the odom pose for next iteration
+    pf_odom_pose_ = pose; 
     
     // Set the odometry delta
     odata.delta = delta;
@@ -632,20 +633,30 @@ int AmclNode::process()
 
   // 3. SENSOR UPDATE
   //    Modify the particle weight based on each sensor
-  if(pf_update_ && gps_new) 
+  // Sensor 1: GPS
+  if(pf_update_ && gps_new)  
   {
     printf("GPS Update\n");
-    AMCLGpsData gdata;;
+    AMCLGpsData gdata;
     gdata.sensor = gps_; //gps_vec_[gps_index];
     gdata.x = gps.pose.position.x;
     gdata.y = gps.pose.position.y;
 
     AMCLSensorData* tempdata = &gdata;
-    gps_->UpdateSensor(pf_,tempdata); // Update weights based on the sensor
-
-    //pf_update_ = false;
-
-    pf_odom_pose_ = pose;
+    gps_->UpdateSensor(pf_,tempdata); // Update weights based on the GPS
+  }
+  
+  // Sensor 2: Beacon
+  if (pf_update_) //&& beacon_new)
+  {
+    printf("Beacon Update\n");
+    //AMCLBeaconData bdata; //initialize beacon
+    //bdata.sensor = beacon_; // set the sensor
+    //bdata.dist = // Set the measurement
+    
+    //AMCLSensorData* tempdata = &bdata;
+    //beacon_->UpdateSensor(pf_,tempdata); // Update weights based on the beacon
+    
   }
   
   // 4. RESAMPLING
