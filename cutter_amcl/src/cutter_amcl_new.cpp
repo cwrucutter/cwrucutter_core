@@ -223,7 +223,13 @@ int main(int argc, char** argv)
 
   AmclNode an;
   
-  ros::spin();
+  ros::Rate loop_rate(10.0); // Loop at 10 Hz
+  while (ros::ok())
+  {
+    ros::spinOnce();   // Run callbacks
+    an.process();      // Process the Sensors using AMCL
+    loop_rate.sleep(); // Sleep at the loop rate
+  }
   
   return(0);
 }
@@ -231,6 +237,7 @@ int main(int argc, char** argv)
 AmclNode::AmclNode() :
         sent_first_transform_(false),
         latest_tf_valid_(false),
+        gps_initialized_(false),
         pf_(NULL),
         resample_count_(0),
         odom_(NULL),
@@ -239,12 +246,10 @@ AmclNode::AmclNode() :
         initial_pose_hyp_(NULL),
         first_reconfigure_call_(true)
 {
-  printf("Entering AmclNode\n");
-  printf("%i \n", __LINE__);
+  ROS_INFO("Entering AmclNode constructor\n");
   boost::recursive_mutex::scoped_lock l(configuration_mutex_);
 
   // GET PARAMS
-
   double tmp;
   private_nh_.param("gui_publish_rate", tmp, -1.0);
   gui_publish_period = ros::Duration(1.0/tmp);
@@ -342,8 +347,7 @@ AmclNode::AmclNode() :
     init_cov_[2] = tmp_pos;
   else
     ROS_WARN("ignoring NAN in initial covariance AA");
-  printf("%i \n", __LINE__);
-
+    
   cloud_pub_interval.fromSec(1.0);
   tfb_ = new tf::TransformBroadcaster();
   tf_ = new tf::TransformListener();
@@ -375,8 +379,6 @@ AmclNode::AmclNode() :
   pf_init(pf_, pf_init_pose_mean, pf_init_pose_cov);
   pf_init_ = false;
   
-  printf("%i \n", __LINE__);
-  
   // Instantiate the sensor objects
   // Odometry
   delete odom_;
@@ -402,12 +404,12 @@ AmclNode::AmclNode() :
   // 5s timer to warn on lack of receipt of gps data
   gps_check_interval_ = ros::Duration(5.0);
   check_gps_timer_ = nh_.createTimer(gps_check_interval_, boost::bind(&AmclNode::checkGpsReceived, this, _1));
-  printf("Leaving AmclNode\n");
+  ROS_INFO("Leaving AmclNode constructor\n");
 }
 
 void AmclNode::checkGpsReceived(const ros::TimerEvent& event)
 {
-  printf("Entering checkGpsReceived\n");
+  ROS_INFO("Entering checkGpsReceived\n");
   ros::Duration d = ros::Time::now() - last_gps_received_ts_;
   if(d > gps_check_interval_)
   {
@@ -415,16 +417,16 @@ void AmclNode::checkGpsReceived(const ros::TimerEvent& event)
              d.toSec(),
              ros::names::resolve(gps_topic_).c_str());
   }
-  printf("Leaving checkGpsReceived\n");
+  ROS_INFO("Leaving checkGpsReceived\n");
 }
 
 AmclNode::~AmclNode()
 {
-  printf("Entering ~AmclNode\n");
+  ROS_INFO("Entering ~AmclNode destructor\n");
   
   delete tfb_;
   delete tf_;
-  printf("Leaving ~AmclNode\n");
+  ROS_INFO("Leaving ~AmclNode destructor\n");
   // TODO: delete everything allocated in constructor
 }
 
@@ -432,9 +434,9 @@ bool AmclNode::getOdomPose(tf::Stamped<tf::Pose>& odom_pose,
                            double& x, double& y, double& yaw,
                            const ros::Time& t, const std::string& f)
 {
-  printf("Entering getOdomPose\n");
+  //ROS_INFO("Entering getOdomPose\n");
   // Get the robot's pose
-  ROS_INFO("Time Now: %f, Gps Time Stamp: %f", ros::Time::now().toSec(), t.toSec());
+  //ROS_INFO("Time Now: %f, Gps Time Stamp: %f", ros::Time::now().toSec(), t.toSec());
   tf::Stamped<tf::Pose> ident (tf::Transform(tf::createIdentityQuaternion(),
                                            tf::Vector3(0,0,0)), t, f);
   try
@@ -452,9 +454,9 @@ bool AmclNode::getOdomPose(tf::Stamped<tf::Pose>& odom_pose,
   y = odom_pose.getOrigin().y();
   double pitch,roll;
   odom_pose.getBasis().getEulerYPR(yaw, pitch, roll);
-  ROS_INFO("Odom pose: x: %f, y: %f, yaw: %f",x,y,yaw);
+  //ROS_INFO("Odom pose: x: %f, y: %f, yaw: %f",x,y,yaw);
 
-  printf("Leaving getOdomPose\n");
+  //ROS_INFO("Leaving getOdomPose\n");
   return true;
 }
 
@@ -462,7 +464,7 @@ bool AmclNode::getOdomPose(tf::Stamped<tf::Pose>& odom_pose,
 pf_vector_t AmclNode::uniformPoseGenerator(void* arg)
 {
   // Sample uniformly around the last measurement!!
-  printf("Entering uniformPoseGenerator\n");
+  //ROS_INFO("Entering uniformPoseGenerator\n");
   geometry_msgs::PoseStamped* gps = (geometry_msgs::PoseStamped*)arg;
   
   double min_range, max_range, r, tht;
@@ -476,7 +478,6 @@ pf_vector_t AmclNode::uniformPoseGenerator(void* arg)
   p.v[1] = gps->pose.position.y + r*sin(tht);
   p.v[2] = tht;
   
-  printf("Leaving uniformPoseGenerator\n"); 
   return p;
 }
 
@@ -485,34 +486,30 @@ bool AmclNode::globalLocalizationCallback(std_srvs::Empty::Request& req,
 {
   // Global Localization Server: 
   //    Runs when the service is called. Uses uniformPoseGenerator to create uniform poses
-  printf("Entering globalLocalizationCallback\n");
-  if( map_ == NULL ) {
-    printf("Map == null, Leaving globalLocalizationCallback\n");
-    return true;
-  }
+  ROS_INFO("Entering globalLocalizationCallback\n");
+  
   boost::recursive_mutex::scoped_lock gl(configuration_mutex_);
   ROS_INFO("Initializing with uniform distribution");
   pf_init_model(pf_, (pf_init_model_fn_t)AmclNode::uniformPoseGenerator,
                 (void *)&last_gps_pose_);
   ROS_INFO("Global initialisation done!");
   pf_init_ = false;
-  printf("Leaving globalLocalizationCallback\n");
+  ROS_INFO("Leaving globalLocalizationCallback\n");
   return true;
 }
 
 void AmclNode::gpsReceived(const geometry_msgs::PoseStampedConstPtr& gps)
 { 
-  printf("Entering gpsReceived\n");
+  ROS_INFO("Entering gpsReceived\n");
   last_gps_received_ts_ = ros::Time::now();
   last_gps_pose_ = *gps;
   
   boost::recursive_mutex::scoped_lock lr(configuration_mutex_);
 
   // Do we have the base->base_gps Tx yet? We need to know the location of 
-  //  the gps with respect to the robot base
+  //  the gps with respect to the robot origin
   if(!gps_initialized_)
   {
-    printf("If 1\n");
     ROS_INFO("Setting up gps (frame_id=%s)\n", gps->header.frame_id.c_str());
     pf_update_ = true;
 
@@ -652,7 +649,6 @@ int AmclNode::process()
       // Resample the particles
       if(!(++resample_count_ % resample_interval_))
       {
-        printf("If 4resample\n");
         pf_update_resample(pf_);
         resampled = true;
       }
