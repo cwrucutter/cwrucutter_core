@@ -1,0 +1,10 @@
+bool mainEstop
+bool remoteEstop
+bool wheelRelay
+bool bladeRelay
+bool heartBeat
+bool driveEnable
+bool switchA
+bool switchB
+bool switchC
+bool switchD
