@@ -901,6 +901,7 @@ AmclNode::gpsReceived(const geometry_msgs::PoseStampedConstPtr& gps)
               gps_pose_v.v[1],
               gps_pose_v.v[2]);
 
+    // Index each GPS by its frame_id (ie, /base_gps_1, /base_gps_2)
     frame_to_gps_[gps->header.frame_id] = gps_index;
     
   } else {

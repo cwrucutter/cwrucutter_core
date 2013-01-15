@@ -29,9 +29,15 @@ rosbuild_add_library(amcl_sensors
                     src/sensors/amcl_gps.cpp)
 target_link_libraries(amcl_sensors amcl_map amcl_pf)
 
-rosbuild_add_boost_directories()
-rosbuild_add_executable(bin/cutter_amcl
-                       src/cutter_amcl.cpp)
-rosbuild_link_boost(bin/cutter_amcl signals)
+#rosbuild_add_boost_directories()
+#rosbuild_add_executable(bin/cutter_amcl
+#                        src/cutter_amcl.cpp)
+#rosbuild_link_boost(bin/cutter_amcl signals)
+#target_link_libraries(bin/cutter_amcl amcl_sensors amcl_map amcl_pf)
 
-target_link_libraries(bin/cutter_amcl amcl_sensors amcl_map amcl_pf)
+
+rosbuild_add_boost_directories()
+rosbuild_add_executable(bin/cutter_amcl_new
+                        src/cutter_amcl_new.cpp)
+rosbuild_link_boost(bin/cutter_amcl_new signals)
+target_link_libraries(bin/cutter_amcl_new amcl_sensors amcl_map amcl_pf)
