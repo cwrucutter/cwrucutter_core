@@ -437,6 +437,7 @@ bool AmclNode::getOdomPose(tf::Stamped<tf::Pose>& odom_pose,
   //ROS_INFO("Entering getOdomPose\n");
   // Get the robot's pose
   //ROS_INFO("Time Now: %f, Gps Time Stamp: %f", ros::Time::now().toSec(), t.toSec());
+  double startTime = ros::Time::now().toSec();
   tf::Stamped<tf::Pose> ident (tf::Transform(tf::createIdentityQuaternion(),
                                            tf::Vector3(0,0,0)), t, f);
   try
@@ -457,6 +458,8 @@ bool AmclNode::getOdomPose(tf::Stamped<tf::Pose>& odom_pose,
   //ROS_INFO("Odom pose: x: %f, y: %f, yaw: %f",x,y,yaw);
 
   //ROS_INFO("Leaving getOdomPose\n");
+  double endTime = ros::Time::now().toSec();
+  ROS_INFO("getOdomPose Duration: %f", endTime-startTime);
   return true;
 }
 
@@ -500,7 +503,6 @@ bool AmclNode::globalLocalizationCallback(std_srvs::Empty::Request& req,
 
 void AmclNode::gpsReceived(const geometry_msgs::PoseStampedConstPtr& gps)
 { 
-  ROS_INFO("Entering gpsReceived\n");
   last_gps_received_ts_ = ros::Time::now();
   last_gps_pose_ = *gps;
   
@@ -559,274 +561,279 @@ int AmclNode::process()
   last_amcl_ts_ = ros::Time::now();
   double startTime = ros::Time::now().toSec();
   
-  if (gps_new) 
-  {  
-    // Where was the robot when this gps measurement was taken?
-    tf::Stamped<tf::Pose> odom_pose;
-    pf_vector_t pose;
-    if(!getOdomPose(odom_pose, pose.v[0], pose.v[1], pose.v[2],
-                    gps.header.stamp, base_frame_id_))
+  // 1. GET ODOMETRY
+  tf::Stamped<tf::Pose> odom_pose;
+  pf_vector_t pose;
+  if(!getOdomPose(odom_pose, pose.v[0], pose.v[1], pose.v[2],
+                  last_amcl_ts_, base_frame_id_))
+  {
+    ROS_ERROR("Couldn't determine robot's pose associated with gps measurement");
+    printf("Leaving process\n");
+    return 0;
+  }
+
+  pf_vector_t delta = pf_vector_zero();
+  if(pf_init_)
+  {
+    // Compute change in pose
+    delta.v[0] = pose.v[0] - pf_odom_pose_.v[0];
+    delta.v[1] = pose.v[1] - pf_odom_pose_.v[1];
+    delta.v[2] = angle_diff(pose.v[2], pf_odom_pose_.v[2]);
+    ROS_INFO("Pose Change: x: %f, y: %f, yaw: %f",delta.v[0],delta.v[2],delta.v[2]);
+
+    // See if we should update the filter
+    bool update = fabs(delta.v[0]) > d_thresh_ ||
+                  fabs(delta.v[1]) > d_thresh_ ||
+                  fabs(delta.v[2]) > a_thresh_;
+    ROS_INFO("xdiff: %f, ydiff: %f, adiff: %f, dthresh: %f, athresh_ %f", fabs(delta.v[0]),fabs(delta.v[1]),fabs(delta.v[2]),d_thresh_,a_thresh_);
+
+    // Set the laser update flags
+    if(update)
     {
-      ROS_ERROR("Couldn't determine robot's pose associated with gps measurement");
-      printf("Leaving process\n");
-      return 0;
-    }
-
-    pf_vector_t delta = pf_vector_zero();
-    if(pf_init_)
-    {
-      // Compute change in pose
-      delta.v[0] = pose.v[0] - pf_odom_pose_.v[0];
-      delta.v[1] = pose.v[1] - pf_odom_pose_.v[1];
-      delta.v[2] = angle_diff(pose.v[2], pf_odom_pose_.v[2]);
-      ROS_INFO("Pose Change: x: %f, y: %f, yaw: %f",delta.v[0],delta.v[2],delta.v[2]);
-
-      // See if we should update the filter
-      bool update = fabs(delta.v[0]) > d_thresh_ ||
-                    fabs(delta.v[1]) > d_thresh_ ||
-                    fabs(delta.v[2]) > a_thresh_;
-      ROS_INFO("xdiff: %f, ydiff: %f, adiff: %f, dthresh: %f, athresh_ %f", fabs(delta.v[0]),fabs(delta.v[1]),fabs(delta.v[2]),d_thresh_,a_thresh_);
-
-      // Set the laser update flags
-      if(update)
-      {
-        pf_update_ = true;
-        ROS_INFO("Updating now!");
-      }
-      else
-      {
-        ROS_INFO("Update not needed");
-      }
-    }
-
-    // ODOMETRY UPDATE
-    bool force_publication = false;
-    if(!pf_init_)
-    {
-      // Pose at last filter update
-      pf_odom_pose_ = pose;
-
-      // Filter is now initialized
-      pf_init_ = true;
-
-      // Should update sensor data
       pf_update_ = true;
-
-      force_publication = true;
-
-      resample_count_ = 0;
+      ROS_INFO("Updating now!");
     }
-    // If the robot has moved, update the filter
-    else if(pf_init_ && pf_update_)
+    else
     {
-      AMCLOdomData odata;
-      odata.pose = pose;
-      
-      // Set the odometry delta
-      odata.delta = delta;
+      ROS_INFO("Update not needed");
+    }
+  }
 
-      // Use the action data to update the filter
-      odom_->UpdateAction(pf_, (AMCLSensorData*)&odata);
+  // 2. PARTICLE FILTER ODOMETRY UPDATE
+  bool force_publication = false;
+  if(!pf_init_)
+  {
+    // Pose at last filter update
+    pf_odom_pose_ = pose;
+
+    // Filter is now initialized
+    pf_init_ = true;
+
+    // Should update sensor data
+    pf_update_ = true;
+
+    force_publication = true;
+
+    resample_count_ = 0;
+  }
+  // If the robot has moved, update the filter
+  else if(pf_init_ && pf_update_)
+  {
+    printf("Odometry Update\n");
+    AMCLOdomData odata;
+    odata.pose = pose;
+    
+    // Set the odometry delta
+    odata.delta = delta;
+
+    // Use the action data to update the filter
+    odom_->UpdateAction(pf_, (AMCLSensorData*)&odata);
+  }
+
+  // 3. SENSOR UPDATE
+  //    Modify the particle weight based on each sensor
+  if(pf_update_ && gps_new) 
+  {
+    printf("GPS Update\n");
+    AMCLGpsData gdata;;
+    gdata.sensor = gps_; //gps_vec_[gps_index];
+    gdata.x = gps.pose.position.x;
+    gdata.y = gps.pose.position.y;
+
+    AMCLSensorData* tempdata = &gdata;
+    gps_->UpdateSensor(pf_,tempdata); // Update weights based on the sensor
+
+    //pf_update_ = false;
+
+    pf_odom_pose_ = pose;
+  }
+  
+  // 4. RESAMPLING
+  bool resampled = false;
+  if (pf_update_)
+  {
+    pf_update_ = false;
+    
+    // Resample the particles
+    if(!(++resample_count_ % resample_interval_))
+    {
+      pf_update_resample(pf_);
+      resampled = true;
     }
 
-    // SENSOR UPDATE
-    bool resampled = false;
-    // If the robot has moved, update the filter
-    if(pf_update_)
+    pf_sample_set_t* set = pf_->sets + pf_->current_set;
+    ROS_INFO("Num samples: %d\n", set->sample_count);
+
+    // Publish the resulting cloud
+    // TODO: set maximum rate for publishing
+    geometry_msgs::PoseArray cloud_msg;
+    cloud_msg.header.stamp = ros::Time::now();
+    cloud_msg.header.frame_id = global_frame_id_;
+    cloud_msg.poses.resize(set->sample_count);
+    for(int i=0;i<set->sample_count;i++)
     {
-      AMCLGpsData gdata;;
-      gdata.sensor = gps_; //gps_vec_[gps_index];
-      gdata.x = gps.pose.position.x;
-      gdata.y = gps.pose.position.y;
+      tf::poseTFToMsg(tf::Pose(tf::createQuaternionFromYaw(set->samples[i].pose.v[2]),
+                               tf::Vector3(set->samples[i].pose.v[0],
+                                         set->samples[i].pose.v[1], 0)),
+                      cloud_msg.poses[i]);
 
-      AMCLSensorData* tempdata = &gdata;
-      gps_->UpdateSensor(pf_,tempdata);
+    }
 
-      pf_update_ = false;
+    particlecloud_pub_.publish(cloud_msg);
+  }
 
-      pf_odom_pose_ = pose;
-
-      // Resample the particles
-      if(!(++resample_count_ % resample_interval_))
+  // 5. CLEANUP, ORGANIZATION, PUBLISHING STUFF
+  if(resampled || force_publication)
+  {
+    // Read out the current hypotheses
+    double max_weight = 0.0;
+    int max_weight_hyp = -1;
+    std::vector<amcl_hyp_t> hyps;
+    hyps.resize(pf_->sets[pf_->current_set].cluster_count);
+    for(int hyp_count = 0;
+        hyp_count < pf_->sets[pf_->current_set].cluster_count; hyp_count++)
+    {
+      double weight;
+      pf_vector_t pose_mean;
+      pf_matrix_t pose_cov;
+      if (!pf_get_cluster_stats(pf_, hyp_count, &weight, &pose_mean, &pose_cov))
       {
-        pf_update_resample(pf_);
-        resampled = true;
+        ROS_ERROR("Couldn't get stats on cluster %d", hyp_count);
+        break;
       }
+      //ROS_INFO("Num Samples: %i, Num Clusters: %i",pf_->sets[pf_->current_set].sample_count,pf_->sets[pf_->current_set].cluster_count);
+      hyps[hyp_count].weight = weight;
+      hyps[hyp_count].pf_pose_mean = pose_mean;
+      hyps[hyp_count].pf_pose_cov = pose_cov;
 
+      if(hyps[hyp_count].weight > max_weight)
+      {
+        max_weight = hyps[hyp_count].weight;
+        max_weight_hyp = hyp_count;
+      }
+    }
+
+    if(max_weight > 0.0)
+    {
+      ROS_INFO("Max weight pose: %.3f %.3f %.3f",
+                hyps[max_weight_hyp].pf_pose_mean.v[0],
+                hyps[max_weight_hyp].pf_pose_mean.v[1],
+                hyps[max_weight_hyp].pf_pose_mean.v[2]);
+
+      geometry_msgs::PoseWithCovarianceStamped p;
+      // Fill in the header
+      p.header.frame_id = global_frame_id_;
+      p.header.stamp = gps.header.stamp;
+      // Copy in the pose
+      p.pose.pose.position.x = hyps[max_weight_hyp].pf_pose_mean.v[0];
+      p.pose.pose.position.y = hyps[max_weight_hyp].pf_pose_mean.v[1];
+      tf::quaternionTFToMsg(tf::createQuaternionFromYaw(hyps[max_weight_hyp].pf_pose_mean.v[2]),
+                            p.pose.pose.orientation);
+      // Copy in the covariance, converting from 3-D to 6-D
       pf_sample_set_t* set = pf_->sets + pf_->current_set;
-      ROS_INFO("Num samples: %d\n", set->sample_count);
-
-      // Publish the resulting cloud
-      // TODO: set maximum rate for publishing
-      geometry_msgs::PoseArray cloud_msg;
-      cloud_msg.header.stamp = ros::Time::now();
-      cloud_msg.header.frame_id = global_frame_id_;
-      cloud_msg.poses.resize(set->sample_count);
-      for(int i=0;i<set->sample_count;i++)
+      for(int i=0; i<2; i++)
       {
-        tf::poseTFToMsg(tf::Pose(tf::createQuaternionFromYaw(set->samples[i].pose.v[2]),
-                                 tf::Vector3(set->samples[i].pose.v[0],
-                                           set->samples[i].pose.v[1], 0)),
-                        cloud_msg.poses[i]);
-
-      }
-
-      particlecloud_pub_.publish(cloud_msg);
-    }
-
-    // CLEANUP/ ORGANIZATION/ PUBLISHING Stuff
-    if(resampled || force_publication)
-    {
-      // Read out the current hypotheses
-      double max_weight = 0.0;
-      int max_weight_hyp = -1;
-      std::vector<amcl_hyp_t> hyps;
-      hyps.resize(pf_->sets[pf_->current_set].cluster_count);
-      for(int hyp_count = 0;
-          hyp_count < pf_->sets[pf_->current_set].cluster_count; hyp_count++)
-      {
-        double weight;
-        pf_vector_t pose_mean;
-        pf_matrix_t pose_cov;
-        if (!pf_get_cluster_stats(pf_, hyp_count, &weight, &pose_mean, &pose_cov))
+        for(int j=0; j<2; j++)
         {
-          ROS_ERROR("Couldn't get stats on cluster %d", hyp_count);
-          break;
-        }
-        //ROS_INFO("Num Samples: %i, Num Clusters: %i",pf_->sets[pf_->current_set].sample_count,pf_->sets[pf_->current_set].cluster_count);
-        hyps[hyp_count].weight = weight;
-        hyps[hyp_count].pf_pose_mean = pose_mean;
-        hyps[hyp_count].pf_pose_cov = pose_cov;
-
-        if(hyps[hyp_count].weight > max_weight)
-        {
-          max_weight = hyps[hyp_count].weight;
-          max_weight_hyp = hyp_count;
+          // Report the overall filter covariance, rather than the
+          // covariance for the highest-weight cluster
+          //p.covariance[6*i+j] = hyps[max_weight_hyp].pf_pose_cov.m[i][j];
+          p.pose.covariance[6*i+j] = set->cov.m[i][j];
         }
       }
+      // Report the overall filter covariance, rather than the
+      // covariance for the highest-weight cluster
+      //p.covariance[6*5+5] = hyps[max_weight_hyp].pf_pose_cov.m[2][2];
+      p.pose.covariance[6*5+5] = set->cov.m[2][2];
 
-      if(max_weight > 0.0)
+      pose_pub_.publish(p);
+      last_published_pose = p;
+
+      ROS_INFO("New pose: %6.3f %6.3f %6.3f",
+               hyps[max_weight_hyp].pf_pose_mean.v[0],
+               hyps[max_weight_hyp].pf_pose_mean.v[1],
+               hyps[max_weight_hyp].pf_pose_mean.v[2]);
+
+      // subtracting base to odom from map to base and send map to odom instead
+      tf::Stamped<tf::Pose> odom_to_map;
+      try
       {
-        ROS_INFO("Max weight pose: %.3f %.3f %.3f",
-                  hyps[max_weight_hyp].pf_pose_mean.v[0],
-                  hyps[max_weight_hyp].pf_pose_mean.v[1],
-                  hyps[max_weight_hyp].pf_pose_mean.v[2]);
-
-        geometry_msgs::PoseWithCovarianceStamped p;
-        // Fill in the header
-        p.header.frame_id = global_frame_id_;
-        p.header.stamp = gps.header.stamp;
-        // Copy in the pose
-        p.pose.pose.position.x = hyps[max_weight_hyp].pf_pose_mean.v[0];
-        p.pose.pose.position.y = hyps[max_weight_hyp].pf_pose_mean.v[1];
-        tf::quaternionTFToMsg(tf::createQuaternionFromYaw(hyps[max_weight_hyp].pf_pose_mean.v[2]),
-                              p.pose.pose.orientation);
-        // Copy in the covariance, converting from 3-D to 6-D
-        pf_sample_set_t* set = pf_->sets + pf_->current_set;
-        for(int i=0; i<2; i++)
-        {
-          for(int j=0; j<2; j++)
-          {
-            // Report the overall filter covariance, rather than the
-            // covariance for the highest-weight cluster
-            //p.covariance[6*i+j] = hyps[max_weight_hyp].pf_pose_cov.m[i][j];
-            p.pose.covariance[6*i+j] = set->cov.m[i][j];
-          }
-        }
-        // Report the overall filter covariance, rather than the
-        // covariance for the highest-weight cluster
-        //p.covariance[6*5+5] = hyps[max_weight_hyp].pf_pose_cov.m[2][2];
-        p.pose.covariance[6*5+5] = set->cov.m[2][2];
-
-        pose_pub_.publish(p);
-        last_published_pose = p;
-
-        ROS_INFO("New pose: %6.3f %6.3f %6.3f",
-                 hyps[max_weight_hyp].pf_pose_mean.v[0],
-                 hyps[max_weight_hyp].pf_pose_mean.v[1],
-                 hyps[max_weight_hyp].pf_pose_mean.v[2]);
-
-        // subtracting base to odom from map to base and send map to odom instead
-        tf::Stamped<tf::Pose> odom_to_map;
-        try
-        {
-          tf::Transform tmp_tf(tf::createQuaternionFromYaw(hyps[max_weight_hyp].pf_pose_mean.v[2]),
-                               tf::Vector3(hyps[max_weight_hyp].pf_pose_mean.v[0],
-                                           hyps[max_weight_hyp].pf_pose_mean.v[1],
-                                           0.0));
-          tf::Stamped<tf::Pose> tmp_tf_stamped (tmp_tf.inverse(),
-                                                gps.header.stamp,
-                                                base_frame_id_);
-          this->tf_->transformPose(odom_frame_id_,
-                                   tmp_tf_stamped,
-                                   odom_to_map);
-        }
-        catch(tf::TransformException)
-        {
-          ROS_INFO("Failed to subtract base to odom transform");
-          printf("Leaving process\n");
-          return 0;
-        }
-
-        latest_tf_ = tf::Transform(tf::Quaternion(odom_to_map.getRotation()),
-                                   tf::Point(odom_to_map.getOrigin()));
-        latest_tf_valid_ = true;
-
-        // We want to send a transform that is good up until a
-        // tolerance time so that odom can be used
-        ros::Time transform_expiration = (gps.header.stamp +
-                                          transform_tolerance_);
-        tf::StampedTransform tmp_tf_stamped(latest_tf_.inverse(),
-                                            transform_expiration,
-                                            global_frame_id_, odom_frame_id_);
-        this->tfb_->sendTransform(tmp_tf_stamped);
-        sent_first_transform_ = true;
+        tf::Transform tmp_tf(tf::createQuaternionFromYaw(hyps[max_weight_hyp].pf_pose_mean.v[2]),
+                             tf::Vector3(hyps[max_weight_hyp].pf_pose_mean.v[0],
+                                         hyps[max_weight_hyp].pf_pose_mean.v[1],
+                                         0.0));
+        tf::Stamped<tf::Pose> tmp_tf_stamped (tmp_tf.inverse(),
+                                              gps.header.stamp,
+                                              base_frame_id_);
+        this->tf_->transformPose(odom_frame_id_,
+                                 tmp_tf_stamped,
+                                 odom_to_map);
       }
-      else
+      catch(tf::TransformException)
       {
-        ROS_ERROR("No pose!");
+        ROS_INFO("Failed to subtract base to odom transform");
+        printf("Leaving process\n");
+        return 0;
       }
-    }
-    else if(latest_tf_valid_)
-    {
-      // Nothing changed, so we'll just republish the last transform, to keep
-      // everybody happy.
+
+      latest_tf_ = tf::Transform(tf::Quaternion(odom_to_map.getRotation()),
+                                 tf::Point(odom_to_map.getOrigin()));
+      latest_tf_valid_ = true;
+
+      // We want to send a transform that is good up until a
+      // tolerance time so that odom can be used
       ros::Time transform_expiration = (gps.header.stamp +
                                         transform_tolerance_);
       tf::StampedTransform tmp_tf_stamped(latest_tf_.inverse(),
                                           transform_expiration,
                                           global_frame_id_, odom_frame_id_);
       this->tfb_->sendTransform(tmp_tf_stamped);
-
-
-      // Is it time to save our last pose to the param server
-      ros::Time now = ros::Time::now();
-      if((save_pose_period.toSec() > 0.0) &&
-         (now - save_pose_last_time) >= save_pose_period)
-      {
-        // We need to apply the last transform to the latest odom pose to get
-        // the latest map pose to store.  We'll take the covariance from
-        // last_published_pose.
-        tf::Pose map_pose = latest_tf_.inverse() * odom_pose;
-        double yaw,pitch,roll;
-        map_pose.getBasis().getEulerYPR(yaw, pitch, roll);
-
-        private_nh_.setParam("initial_pose_x", map_pose.getOrigin().x());
-        private_nh_.setParam("initial_pose_y", map_pose.getOrigin().y());
-        private_nh_.setParam("initial_pose_a", yaw);
-        private_nh_.setParam("initial_cov_xx", 
-                                        last_published_pose.pose.covariance[6*0+0]);
-        private_nh_.setParam("initial_cov_yy", 
-                                        last_published_pose.pose.covariance[6*1+1]);
-        private_nh_.setParam("initial_cov_aa", 
-                                        last_published_pose.pose.covariance[6*5+5]);
-        save_pose_last_time = now;
-      }
+      sent_first_transform_ = true;
     }
-    double endTime = ros::Time::now().toSec();
-    ROS_INFO("Loop Duration: %f", endTime-startTime);
-    printf("Leaving process\n");
+    else
+    {
+      ROS_ERROR("No pose!");
+    }
   }
+  else if(latest_tf_valid_)
+  {
+    // Nothing changed, so we'll just republish the last transform, to keep
+    // everybody happy.
+    ros::Time transform_expiration = (gps.header.stamp +
+                                      transform_tolerance_);
+    tf::StampedTransform tmp_tf_stamped(latest_tf_.inverse(),
+                                        transform_expiration,
+                                        global_frame_id_, odom_frame_id_);
+    this->tfb_->sendTransform(tmp_tf_stamped);
+
+
+    // Is it time to save our last pose to the param server
+    ros::Time now = ros::Time::now();
+    if((save_pose_period.toSec() > 0.0) &&
+       (now - save_pose_last_time) >= save_pose_period)
+    {
+      // We need to apply the last transform to the latest odom pose to get
+      // the latest map pose to store.  We'll take the covariance from
+      // last_published_pose.
+      tf::Pose map_pose = latest_tf_.inverse() * odom_pose;
+      double yaw,pitch,roll;
+      map_pose.getBasis().getEulerYPR(yaw, pitch, roll);
+
+      private_nh_.setParam("initial_pose_x", map_pose.getOrigin().x());
+      private_nh_.setParam("initial_pose_y", map_pose.getOrigin().y());
+      private_nh_.setParam("initial_pose_a", yaw);
+      private_nh_.setParam("initial_cov_xx", 
+                                      last_published_pose.pose.covariance[6*0+0]);
+      private_nh_.setParam("initial_cov_yy", 
+                                      last_published_pose.pose.covariance[6*1+1]);
+      private_nh_.setParam("initial_cov_aa", 
+                                      last_published_pose.pose.covariance[6*5+5]);
+      save_pose_last_time = now;
+    }
+  }
+  double endTime = ros::Time::now().toSec();
+  ROS_INFO("Loop Duration: %f", endTime-startTime);
+  
   return 1;
 
 }
