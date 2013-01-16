@@ -106,7 +106,7 @@ CutterPlanner::CutterPlanner()
 
   
   
-  readWayPointsFromFile(path + "/WP/" + file);
+  readWayPointsFromFile(path + "/p/" + file);
 
   ROS_INFO("Advertising service");
   wp_srv_ = nh_.advertiseService("get_waypoint", &CutterPlanner::getWayPointService, this );

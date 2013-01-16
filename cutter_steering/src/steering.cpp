@@ -10,11 +10,12 @@
 //  - ~w_a_max - maximum angular acceleration
 //Subscribes to:
 //  - cwru/waypts (Path output from cutter_planner)
-//
+//  - cwru/slip (slipping monitor from... somewhere. Maybe Charles knows where?
 //Publishes:
 //  - cwru/cmd_vel
 
 #include <ros/ros.h> //base libraries
+//#include <ros/roscpp.h> //base libraries
 #include <nav_msgs/Path.h> // publish path for viz (TODO)
 #include <geometry_msgs/Twist.h> //data type for velocities
 #include <tf/tf.h> // for tf::getYaw
@@ -22,6 +23,7 @@
 #include <cutter_msgs/WayPoint.h>
 #include <cutter_msgs/GetWayPoints.h>
 #include <cutter_msgs/State.h>
+#include <cutter_msgs/SlipStatus.h>
 #include <algorithm>
 
 #define Hz 10
@@ -39,6 +41,7 @@ class CutterSteering
   private:
     void stateCB(const cutter_msgs::State &state);
     void wayPointCB(const cutter_msgs::WayPoint &wayPoint);
+    void slipCB(const cutter_msgs::SlipStatus &slip);
   
     double euclideanDistance(geometry_msgs::Point p, geometry_msgs::Point q);
     double distToLine(double a1x, double a1y, geometry_msgs::Point, geometry_msgs::Point);
@@ -49,6 +52,7 @@ class CutterSteering
   
     ros::Publisher cmd_vel_pub_;
     ros::Subscriber state_sub_;
+    ros::Subscriber slip_sub_;
     ros::Subscriber way_point_sub_;
 
     //parameters
@@ -66,6 +70,10 @@ class CutterSteering
     bool got_state_;
     bool got_waypoint_;
     bool initial_align;
+    bool slipped;
+    bool sliprecover;
+    double pointofstall;
+    bool switchesgood;
     geometry_msgs::Twist last_cmd_vel_;
     cutter_msgs::State last_state_;
     cutter_msgs::State state_;
@@ -103,6 +111,12 @@ void CutterSteering::stateCB(const cutter_msgs::State &state)
   got_state_ = true;
 }
 
+void CutterSteering::slipCB(const cutter_msgs::SlipStatus &slipstat){
+
+  ROS_WARN("Got an updated slip status of %i", slipstat.slip);
+  slipped = (slipstat.slip == 1);
+}
+
 
 //##constructor##
 CutterSteering::CutterSteering():
@@ -122,6 +136,7 @@ CutterSteering::CutterSteering():
   //set up subscribers
   state_sub_ = nh_.subscribe("cwru/state",1,&CutterSteering::stateCB,this);
   way_point_sub_ = nh_.subscribe("cwru/waypoint",1,&CutterSteering::wayPointCB,this);
+  slip_sub_ = nh_.subscribe("cwru/slip",1,&CutterSteering::slipCB,this);
 
   //set up publisher
   cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>("cmd_vel",1);
@@ -243,6 +258,12 @@ double CutterSteering::distToLine(double a1x, double a1y, geometry_msgs::Point t
 
 void CutterSteering::steer()
 {
+
+  /*if(!switchesgood){
+    ROS_WARN("Steering is currently disabled. Make sure switch A is set to \"ITX cmd_vel\" and driving is enabled.");
+    publishVW(0,0);
+    return;
+  }*/
   if (!got_state_)
   {
     ROS_WARN("Steering tried to steer, but hasn't got a state");
@@ -271,7 +292,7 @@ void CutterSteering::steer()
 
   ROS_INFO("Robot (%.2f,%2f), Intitial position of robot was (%.2f,%.2f), distance to next waypoint (%.2f,%.2f): %f", map_pose_.position.x, map_pose_.position.y, initialX, initialY, target_waypoint_.pose.position.x, target_waypoint_.pose.position.y, targetDistance);
 
-  if (xDistance == 0 || yDistance == 0)//TODO: Tom has no idea what this thing is. The velocity will be set to 5 if it is triggered, causing the robot to spiral out of control.
+  if (false)//TODO: Tom has no idea what this thing is. The velocity will be set to 5 if it is triggered, causing the robot to spiral out of control. (Originally the if statement contained "yDistance == 0 || xDistance ==0"
   {
     ROS_WARN("Starting up? xDistance or yDistance from robot to waypoint is 0!!");
     targetTheta = 0;
@@ -351,11 +372,25 @@ void CutterSteering::steer()
       }
       else
       {
-	double c = CutterSteering::distToLine(initialX, initialY, target_waypoint_.pose.position, map_pose_.position);
+	    double c = CutterSteering::distToLine(initialX, initialY, target_waypoint_.pose.position, map_pose_.position);
         ROS_INFO("c = %f", c);
         v = targetDistance*K_v_proportional_;
-	w = K_wc_proportional_ * c - K_wth_proportional_ * thetaError;
-	ROS_INFO("Progressing to target.");
+	    w = K_wc_proportional_ * c - K_wth_proportional_ * thetaError;
+	    ROS_INFO("Progressing to target.");
+	if(slipped){
+	    ROS_WARN("Stalled!!!!!");
+            pointofstall = ros::Time::now().toSec();
+            ROS_INFO("Time of stall was %f.", pointofstall);
+	    slipped = false;
+	    sliprecover = true;
+	}
+	if(sliprecover){
+	    w = 0.0;
+	    v = -1.0 * v;
+	    if(ros::Time::now().toSec() > pointofstall + 3.0){
+		sliprecover = false;
+	    }
+	}
       }
 
     }

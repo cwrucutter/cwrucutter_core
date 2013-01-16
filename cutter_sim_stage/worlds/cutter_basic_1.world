@@ -142,7 +142,7 @@ chalkline
 )
 
 # throw in a robot
-cutter( pose [ 3 1.5 0 0 ] name "cutter" color "blue")
+cutter( pose [ 3 1.55 0 0 ] name "cutter" color "blue")
 block( pose [ 2 -2.5 0 0 ] color "red")
 block( pose [ 5.29 5.25 0 0 ] color "black")
 block( pose [ 6.94 11.27 0 0 ] color "white")
