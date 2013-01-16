@@ -1,0 +1,14 @@
+<launch>
+  <!-- Use the time from the playback (need to specify clock in the rosbag play command) -->
+  <param name="/use_sim_time" value="true"/>
+
+  <!-- Static transform from /base_link to /base_gps -->
+  <node pkg="tf" type="static_transform_publisher" name="tf_publisher_gps" args="-.45 0 0 0 0 0 base_link base_gps 100" />
+  
+  <!-- Static transform from /map to /snowmap (for now) -->
+  <node pkg="tf" type="static_transform_publisher" name="tf_publisher_snowmap" args="0 0 0 0 0 0 map snowmap 100" />
+
+  <!-- Odometry node -->
+  <include file="$(find cutter_localization)/launch/odometry_encoders.launch" />
+
+</launch>

@@ -21,8 +21,8 @@
 ///////////////////////////////////////////////////////////////////////////
 //
 // Desc: AMCL GPS routines
-// Author: Andrew Howard
-// Date: 6 Feb 2003
+// Author: EJ Kreinar
+// Date: 15 Nov 2012
 // CVS: $Id: amcl_laser.cc 7057 2008-10-02 00:44:06Z gbiggs $
 //
 ///////////////////////////////////////////////////////////////////////////
@@ -76,8 +76,6 @@ double AMCLGps::GpsModel(AMCLGpsData *data, pf_sample_set_t* set)
   int i;
   double z, pz;
   double p;
-//  double map_range;
-//  double obs_range, obs_bearing;
   double total_weight;
   pf_sample_t *sample;
   pf_vector_t pose;

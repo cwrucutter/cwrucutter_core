@@ -1,0 +1,13 @@
+<launch>
+  <!-- Publish the static transform from map to snowmap -->
+  <node pkg="tf" type="static_transform_publisher" name="tf_snowmap" args="0 0 0 0 0 0 map snowmap 100"/>
+
+  <!-- Publish the static transform from snowmap to beacon1 -->
+  <node pkg="tf" type="static_transform_publisher" name="tf_beacon_1" args="0 5.0 0 0 0 0 snowmap beacon_1 100"/>
+
+  <!-- Publish the static transform from base_link to base_ranger_1 -->
+  <node pkg="tf" type="static_transform_publisher" name="tf_base_ranger_1" args="0 0.15 0 0 0 0 base_link base_ranger_1 100"/>
+
+  <!-- Simulate a noisy beacon with an offset -->
+  <node pkg="cutter_sim_stage" type="sim_sensor_beacon.py" name="sensor_beacon"/>
+</launch>
