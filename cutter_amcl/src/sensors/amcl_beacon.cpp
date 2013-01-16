@@ -21,8 +21,8 @@
 ///////////////////////////////////////////////////////////////////////////
 //
 // Desc: AMCL GPS routines
-// Author: EJ Kreinar
-// Date: 15 Nov 2012
+// Author: Andrew Howard
+// Date: 6 Feb 2003
 // CVS: $Id: amcl_laser.cc 7057 2008-10-02 00:44:06Z gbiggs $
 //
 ///////////////////////////////////////////////////////////////////////////
@@ -33,36 +33,47 @@
 #include <assert.h>
 #include <unistd.h>
 
-#include "amcl_gps.h"
+#include "amcl_beacon.h"
 
 using namespace amcl;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Default constructor
-AMCLGps::AMCLGps() : AMCLSensor()
+AMCLBeacon::AMCLBeacon() : AMCLSensor()
 {
   this->time = 0.0;
 
   return;
 }
 
-void 
-AMCLGps::SetModelLeverarm(double sigma_gps)
+void AMCLBeacon::SetModelRangeOnly(double sigma_range)
 {
-  this->model_type = GPS_MODEL_LEVERARM;
-  this->sigma_gps = sigma_gps;
+  this->sigma_range = sigma_range;
+}
+
+void AMCLBeacon::SetModelBearingOnly(double sigma_bearing)
+{
+  this->sigma_bearing = sigma_bearing;
+}
+
+
+void AMCLBeacon::SetModelRangeBearing(double sigma_range, double sigma_bearing)
+{
+  this->sigma_range = sigma_range;
+  this->sigma_bearing = sigma_bearing;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Apply the gps sensor model
-bool AMCLGps::UpdateSensor(pf_t *pf, AMCLSensorData *data)
+bool AMCLBeacon::UpdateSensor(pf_t *pf, AMCLSensorData *data)
 {
-  // Apply the gps sensor model 
-  //   - If we add other GPS models, add more if-statements to select model
-  if(this->model_type == GPS_MODEL_LEVERARM)
-    pf_update_sensor(pf, (pf_sensor_model_fn_t) GpsModel, data);
+  // Apply the beacon sensor model 
+  if(this->model_type == BEACON_MODEL_RANGE_ONLY)
+    pf_update_sensor(pf, (pf_sensor_model_fn_t) RangeModel, data);
+  else if(this->model_type == BEACON_MODEL_BEARING_ONLY)
+    pf_update_sensor(pf, (pf_sensor_model_fn_t) BearingModel, data);
   else
-    pf_update_sensor(pf, (pf_sensor_model_fn_t) GpsModel, data);
+    pf_update_sensor(pf, (pf_sensor_model_fn_t) RangeBearingModel, data);
 
   return true;
 }
@@ -70,9 +81,9 @@ bool AMCLGps::UpdateSensor(pf_t *pf, AMCLSensorData *data)
 
 ////////////////////////////////////////////////////////////////////////////////
 // Determine the probability for the given pose
-double AMCLGps::GpsModel(AMCLGpsData *data, pf_sample_set_t* set)
+double AMCLBeacon::RangeModel(AMCLBeaconData *data, pf_sample_set_t* set)
 {
-  AMCLGps *self;
+  AMCLBeacon *self;
   int i;
   double z, pz;
   double p;
@@ -80,7 +91,7 @@ double AMCLGps::GpsModel(AMCLGpsData *data, pf_sample_set_t* set)
   pf_sample_t *sample;
   pf_vector_t pose;
 
-  self = (AMCLGps*) data->sensor;
+  self = (AMCLBeacon*) data->sensor;
 
   total_weight = 0.0;
 
@@ -89,7 +100,7 @@ double AMCLGps::GpsModel(AMCLGpsData *data, pf_sample_set_t* set)
   {
     sample = set->samples + i;
     pose = sample->pose;
-
+    /*
     // Take account of the gps pose relative to the robot
     pose = pf_vector_coord_add(self->gps_pose, pose);
 
@@ -106,8 +117,60 @@ double AMCLGps::GpsModel(AMCLGpsData *data, pf_sample_set_t* set)
     p *= exp(-(z * z) / (2 * self->sigma_gps * self->sigma_gps));
     
     // Ad hoc method- add pz's together, if the sample weight gets too small
-    
+    */
     sample->weight *= p;
+    total_weight += sample->weight;
+  }
+
+  return(total_weight);
+}
+
+double AMCLBeacon::BearingModel(AMCLBeaconData *data, pf_sample_set_t* set)
+{
+  // NOT CURRENTLY IMPLEMENTED
+  
+  AMCLBeacon *self;
+  int i;
+  double z, pz;
+  double p;
+  double total_weight;
+  pf_sample_t *sample;
+
+  self = (AMCLBeacon*) data->sensor;
+
+  total_weight = 0.0;
+
+  // Compute the sample weights
+  for (i = 0; i < set->sample_count; i++)
+  {
+    sample = set->samples + i;
+    // dont change the sample weight
+    total_weight += sample->weight;
+  }
+
+  return(total_weight);
+}
+
+double AMCLBeacon::RangeBearingModel(AMCLBeaconData *data, pf_sample_set_t* set)
+{
+  // NOT CURRENTLY IMPLEMENTED
+  
+  AMCLBeacon *self;
+  int i;
+  double z, pz;
+  double p;
+  double total_weight;
+  pf_sample_t *sample;
+
+  self = (AMCLBeacon*) data->sensor;
+
+  total_weight = 0.0;
+
+  // Compute the sample weights
+  for (i = 0; i < set->sample_count; i++)
+  {
+    sample = set->samples + i;
+    // dont change the sample weight
     total_weight += sample->weight;
   }
 

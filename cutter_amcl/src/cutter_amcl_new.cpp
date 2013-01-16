@@ -137,6 +137,8 @@ class AmclNode
 
     bool use_map_topic_;
     bool first_map_only_;
+    bool use_gps_;
+    bool use_beacon_;
 
     ros::Duration gui_publish_period;
     ros::Time save_pose_last_time;
@@ -268,6 +270,7 @@ AmclNode::AmclNode() :
   private_nh_.param("odom_alpha5", alpha5_, 0.2);
 
   // GPS parameters
+  private_nh_.param("use_gps", use_gps_, true);
   private_nh_.param("gps_sigma", sigma_gps_, 0.01);
   std::string tmp_model_type;
   private_nh_.param("gps_model_type", tmp_model_type, std::string("leverarm"));
@@ -292,6 +295,8 @@ AmclNode::AmclNode() :
     odom_model_type_ = ODOM_MODEL_DIFF;
   }
  
+  // Beacon parameters
+  private_nh_.param("use_beacon", use_beacon_, true);
  
   // More particle filter parameters
   private_nh_.param("update_min_d", d_thresh_, 0.1);
@@ -555,6 +560,7 @@ void AmclNode::gpsReceived(const geometry_msgs::PoseStampedConstPtr& gps)
 int AmclNode::process()
 {
   bool gps_new = (last_gps_received_ts_ - last_amcl_ts_) > ros::Duration(0.0);
+  bool beacon_new = true;
   geometry_msgs::PoseStamped gps = last_gps_pose_;
   
   boost::recursive_mutex::scoped_lock lr(configuration_mutex_);
@@ -634,7 +640,7 @@ int AmclNode::process()
   // 3. SENSOR UPDATE
   //    Modify the particle weight based on each sensor
   // Sensor 1: GPS
-  if(pf_update_ && gps_new)  
+  if(pf_update_ && gps_new && use_gps_)  
   {
     printf("GPS Update\n");
     AMCLGpsData gdata;
@@ -647,7 +653,7 @@ int AmclNode::process()
   }
   
   // Sensor 2: Beacon
-  if (pf_update_) //&& beacon_new)
+  if (pf_update_ && beacon_new && use_beacon_)
   {
     printf("Beacon Update\n");
     //AMCLBeaconData bdata; //initialize beacon
