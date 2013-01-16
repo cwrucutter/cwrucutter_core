@@ -11,12 +11,12 @@
     <param name="odom_alpha4" value="1"/>
     <param name="odom_alpha5" value="0.4"/>
     <!-- GPS -->
-    <param name="use_gps" value="true" />
+    <param name="use_gps" value="false" />
     <param name="gps_sigma" value="0.04" />
     <!-- Beacon -->
     <param name="use_beacon" value="true" />
     <param name="beacon_model_type" value="rangeonly" />
-    <param name="beacon_range_sigma" value=".2" />
+    <param name="beacon_range_sigma" value=".02" />
     <param name="beacon_bearing_sigma" value=".2" />
     <!-- Particle filter -->
     <param name="gui_publish_rate" value="10.0"/>

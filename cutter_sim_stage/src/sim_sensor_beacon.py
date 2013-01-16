@@ -54,12 +54,12 @@ class SimBeacon():
         # Parameters for beacon and receiver location
         # TODO: get the parameters from the beacon transforms!
         self.beacon_x = 0.0 # beacon location
-        self.beacon_y = 7.0
+        self.beacon_y = 5.0
         self.xoff = 0.0    # receiver offset from base_link
         self.yoff = 0.15
         
         # Sensor parameters
-        self.std = 0.1
+        self.std = 0.0
         
         # Set up Publishers and Subscribers
         self.pub = rospy.Publisher("/cwru/beacon",Beacon)
@@ -89,16 +89,17 @@ class SimBeacon():
         # Offset the base_pose_ground_truth by the specified xoff, yoff
         sensor_x = xy[0] + self.xoff*math.cos(ang[2]) - self.yoff*math.sin(ang[2])
         sensor_y = xy[1] + self.xoff*math.sin(ang[2]) + self.yoff*math.cos(ang[2])
-        sensor = numpy.array((sensor_x, sensor_y))
-        beacon = numpy.array((self.beacon_x, self.beacon_y))
-        dist_true = numpy.linalg.norm(sensor-beacon)
+        dist_x = sensor_x - self.beacon_x;
+        dist_y = sensor_y - self.beacon_y;
+        dist_true = math.sqrt(dist_x**2 + dist_y**2)
         dist = dist_true + random.gauss(0,self.std)
         print "testing"
         print xy
-        print sensor
-        print beacon
+        print sensor_x, sensor_y
+        print self.beacon_x, self.beacon_y
+        print dist_x, dist_y
         print dist_true
-        print dist    
+        print dist
 
         # Populate the message
         beacon_msg.header.stamp = data.header.stamp

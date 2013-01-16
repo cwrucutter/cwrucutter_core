@@ -49,11 +49,13 @@ AMCLBeacon::AMCLBeacon() : AMCLSensor()
 void AMCLBeacon::SetModelRangeOnly(double sigma_range)
 {
   this->sigma_range = sigma_range;
+  this->model_type = BEACON_MODEL_RANGE_ONLY;
 }
 
 void AMCLBeacon::SetModelBearingOnly(double sigma_bearing)
 {
   this->sigma_bearing = sigma_bearing;
+  this->model_type = BEACON_MODEL_BEARING_ONLY;
 }
 
 
@@ -61,6 +63,7 @@ void AMCLBeacon::SetModelRangeBearing(double sigma_range, double sigma_bearing)
 {
   this->sigma_range = sigma_range;
   this->sigma_bearing = sigma_bearing;
+  this->model_type = BEACON_MODEL_RANGE_BEARING;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -88,36 +91,54 @@ double AMCLBeacon::RangeModel(AMCLBeaconData *data, pf_sample_set_t* set)
   double z, pz;
   double p;
   double total_weight;
+  double range;
   pf_sample_t *sample;
   pf_vector_t pose;
+  pf_vector_t offset;
 
   self = (AMCLBeacon*) data->sensor;
 
   total_weight = 0.0;
-
+  
   // Compute the sample weights
+  sample = set->samples + 0;
+  pose = sample->pose;
+  
+  // Find the range
+  pose = pf_vector_coord_add(self->receiver_pose, pose);
+  offset = pf_vector_coord_sub(pose, self->beacon_pose);
+  range = sqrt( offset.v[0]*offset.v[0] + offset.v[1]*offset.v[1] );
+
+  p = 1.0;
+  pz = 0.0;
+  
+  // Gaussian model for range
+  // NOTE: this should have a normalization of 1/(sqrt(2pi)*sigma)
+  //      ... but its okay, because it will get normalized anyway
+  z = data->range - range;
+  p *= exp(-(z * z) / (2 * self->sigma_range * self->sigma_range));
+  printf("Pose: %f, %f    Range: %f, %f    z: %f   p: %f", pose.v[0],pose.v[1],range, data->range, z, p);
+  
+  
   for (i = 0; i < set->sample_count; i++)
   {
     sample = set->samples + i;
     pose = sample->pose;
-    /*
-    // Take account of the gps pose relative to the robot
-    pose = pf_vector_coord_add(self->gps_pose, pose);
+    
+    // Find the range
+    pose = pf_vector_coord_add(self->receiver_pose, pose);
+    offset = pf_vector_coord_sub(pose, self->beacon_pose);
+    range = sqrt( offset.v[0]*offset.v[0] + offset.v[1]*offset.v[1] );
 
     p = 1.0;
     pz = 0.0;
     
-    // Gaussian model
+    // Gaussian model for range
     // NOTE: this should have a normalization of 1/(sqrt(2pi)*sigma)
     //      ... but its okay, because it will get normalized anyway
-    z = data->x - pose.v[0];
-    p *= exp(-(z * z) / (2 * self->sigma_gps * self->sigma_gps));
+    z = data->range - range;
+    p *= exp(-(z * z) / (2 * self->sigma_range * self->sigma_range));
     
-    z = data->y - pose.v[1];
-    p *= exp(-(z * z) / (2 * self->sigma_gps * self->sigma_gps));
-    
-    // Ad hoc method- add pz's together, if the sample weight gets too small
-    */
     sample->weight *= p;
     total_weight += sample->weight;
   }

@@ -69,14 +69,16 @@ def callback(data,pub):
     ang = ang[0], ang[1], ang[2] + rot
     
     # Offset the GPS reading by the lever arm offset
-    x = xy[0] + xoff*math.cos(ang[2])
-    y = xy[1] + yoff*math.sin(ang[2])
+    x = xy[0] + xoff*math.cos(ang[2]) - yoff*math.sin(ang[2])
+    y = xy[1] + xoff*math.sin(ang[2]) + yoff*math.cos(ang[2])
+    #x = xy[0] + xoff*math.cos(ang[2])
+    #y = xy[1] + yoff*math.sin(ang[2])
     gps_x = x + random.gauss(0,std)
     gps_y = y + random.gauss(0,std)
-    #print "testing"
-    #print xy
-    #print x,y
-    #print gps_x, gps_y    
+    print "testing"
+    print xy
+    print x,y
+    print gps_x, gps_y    
 
     # Populate the angle
     # Note... GPS doesnt really return a heading!! So we cant use to localize... rememmmmberrrrr

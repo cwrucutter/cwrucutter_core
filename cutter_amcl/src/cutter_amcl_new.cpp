@@ -139,8 +139,6 @@ class AmclNode
     //parameter for what global frame to use
     std::string global_frame_id_;
 
-    bool use_map_topic_;
-    bool first_map_only_;
     bool use_gps_;
     bool use_beacon_;
 
@@ -151,11 +149,6 @@ class AmclNode
     geometry_msgs::PoseWithCovarianceStamped last_published_pose;
     geometry_msgs::PoseStamped last_gps_pose_;
     cutter_msgs::Beacon last_beacon_range_;
-
-    map_t* map_;
-    char* mapdata;
-    int sx, sy;
-    double resolution;
 
     ros::Subscriber gps_sub_;
     ros::Subscriber beacon_sub_;
@@ -197,10 +190,8 @@ class AmclNode
     ros::Publisher particlecloud_pub_;
     ros::ServiceServer global_loc_srv_;
     ros::Subscriber initial_pose_sub_old_;
-    ros::Subscriber map_sub_;
 
     amcl_hyp_t* initial_pose_hyp_;
-    bool first_map_received_;
     bool first_reconfigure_call_;
 
     boost::recursive_mutex configuration_mutex_;
@@ -249,10 +240,12 @@ AmclNode::AmclNode() :
         sent_first_transform_(false),
         latest_tf_valid_(false),
         gps_initialized_(false),
+        beacon_initialized_(false),
         pf_(NULL),
         resample_count_(0),
         odom_(NULL),
         gps_(NULL),
+        beacon_(NULL),
 	      private_nh_("~"),
         initial_pose_hyp_(NULL),
         first_reconfigure_call_(true)
@@ -431,7 +424,10 @@ AmclNode::AmclNode() :
   beacon_ = new AMCLBeacon();
   ROS_ASSERT(beacon_);
   if(beacon_model_type_ == BEACON_MODEL_RANGE_ONLY)
+  {
     beacon_->SetModelRangeOnly(sigma_beacon_range_);
+    ROS_INFO("Beacon SetModelRangeOnly(%f)", sigma_beacon_range_);
+  }
   else if(beacon_model_type_ == BEACON_MODEL_BEARING_ONLY)
     beacon_->SetModelBearingOnly(sigma_beacon_bearing_);
   else if(beacon_model_type_ == BEACON_MODEL_RANGE_BEARING)
@@ -439,8 +435,16 @@ AmclNode::AmclNode() :
   ROS_INFO("Configured Beacon Sensor");
   
   // Subscribers
-  gps_sub_ = nh_.subscribe(gps_topic_,2,&AmclNode::gpsReceived, this);
-  beacon_sub_ = nh_.subscribe(beacon_topic_,2,&AmclNode::beaconReceived, this);
+  if (use_gps_)
+    gps_sub_ = nh_.subscribe(gps_topic_,2,&AmclNode::gpsReceived, this);
+  else
+    ROS_WARN("Not Using GPS. Enable by setting the use_gps parameter true");
+    
+  if (use_beacon_)
+    beacon_sub_ = nh_.subscribe(beacon_topic_,2,&AmclNode::beaconReceived, this);
+  else
+    ROS_WARN("Not using Beacons. Enable by setting the use_beacon parameter true");
+    
   initial_pose_sub_ = nh_.subscribe("initialpose", 2, &AmclNode::initialPoseReceived, this);
 
   // 5s timer to warn on lack of receipt of gps data
@@ -649,7 +653,7 @@ void AmclNode::beaconReceived(const cutter_msgs::BeaconConstPtr& range)
     receiver_pose_v.v[1] = receiver_pose.getOrigin().y();
     receiver_pose_v.v[2] = 0;
     beacon_->SetReceiverPose(receiver_pose_v);
-    ROS_INFO("Received Ultrasound receiver pose wrt robot: %.3f %.3f %.3f",
+    ROS_INFO("Received Ultrasound Receiver pose wrt robot: %.3f %.3f %.3f",
               receiver_pose_v.v[0],
               receiver_pose_v.v[1],
               receiver_pose_v.v[2]);
@@ -659,7 +663,7 @@ void AmclNode::beaconReceived(const cutter_msgs::BeaconConstPtr& range)
     beacon_pose_v.v[1] = beacon_pose.getOrigin().y();
     beacon_pose_v.v[2] = 0;
     beacon_->SetBeaconPose(beacon_pose_v);
-    ROS_INFO("Received Ultrasound beacon pose wrt robot: %.3f %.3f %.3f",
+    ROS_INFO("Received Ultrasound Beacon pose wrt global frame: %.3f %.3f %.3f",
               beacon_pose_v.v[0],
               beacon_pose_v.v[1],
               beacon_pose_v.v[2]);        
@@ -672,8 +676,9 @@ void AmclNode::beaconReceived(const cutter_msgs::BeaconConstPtr& range)
 int AmclNode::process()
 {
   bool gps_new = (last_gps_received_ts_ - last_amcl_ts_) > ros::Duration(0.0);
-  bool beacon_new = true;
+  bool beacon_new = (last_beacon_received_ts_ - last_amcl_ts_) > ros::Duration(0.0);;
   geometry_msgs::PoseStamped gps = last_gps_pose_;
+  cutter_msgs::Beacon beacon = last_beacon_range_;
   
   boost::recursive_mutex::scoped_lock lr(configuration_mutex_);
   last_amcl_ts_ = ros::Time::now();
@@ -685,8 +690,7 @@ int AmclNode::process()
   if(!getOdomPose(odom_pose, pose.v[0], pose.v[1], pose.v[2],
                   last_amcl_ts_, base_frame_id_))
   {
-    ROS_ERROR("Couldn't determine robot's pose associated with gps measurement");
-    printf("Leaving process\n");
+    ROS_ERROR("Couldn't determine robot's odometry");
     return 0;
   }
 
@@ -768,24 +772,26 @@ int AmclNode::process()
   if (pf_update_ && beacon_new && use_beacon_)
   {
     printf("Beacon Update\n");
-    //AMCLBeaconData bdata; //initialize beacon
-    //bdata.sensor = beacon_; // set the sensor
-    //bdata.dist = // Set the measurement
+    AMCLBeaconData bdata; //initialize beacon
+    bdata.sensor = beacon_; // set the sensor
+    bdata.range = beacon.range; // Set the measurement
+    ROS_INFO("Beacon range: %f", beacon.range);
     
-    //AMCLSensorData* tempdata = &bdata;
-    //beacon_->UpdateSensor(pf_,tempdata); // Update weights based on the beacon
-    
+    AMCLSensorData* tempdata = &bdata;
+    beacon_->UpdateSensor(pf_,tempdata); // Update weights based on the beacon
   }
   
   // 4. RESAMPLING
   bool resampled = false;
   if (pf_update_)
   {
+    printf("1\n");
     pf_update_ = false;
     
     // Resample the particles
     if(!(++resample_count_ % resample_interval_))
     {
+      printf("1a\n");
       pf_update_resample(pf_);
       resampled = true;
     }
@@ -814,6 +820,7 @@ int AmclNode::process()
   // 5. CLEANUP, ORGANIZATION, PUBLISHING STUFF
   if(resampled || force_publication)
   {
+    printf("2\n");
     // Read out the current hypotheses
     double max_weight = 0.0;
     int max_weight_hyp = -1;
@@ -852,7 +859,7 @@ int AmclNode::process()
       geometry_msgs::PoseWithCovarianceStamped p;
       // Fill in the header
       p.header.frame_id = global_frame_id_;
-      p.header.stamp = gps.header.stamp;
+      p.header.stamp = last_amcl_ts_;//gps.header.stamp;
       // Copy in the pose
       p.pose.pose.position.x = hyps[max_weight_hyp].pf_pose_mean.v[0];
       p.pose.pose.position.y = hyps[max_weight_hyp].pf_pose_mean.v[1];
@@ -911,7 +918,7 @@ int AmclNode::process()
 
       // We want to send a transform that is good up until a
       // tolerance time so that odom can be used
-      ros::Time transform_expiration = (gps.header.stamp +
+      ros::Time transform_expiration = (last_amcl_ts_ +
                                         transform_tolerance_);
       tf::StampedTransform tmp_tf_stamped(latest_tf_.inverse(),
                                           transform_expiration,
@@ -926,9 +933,10 @@ int AmclNode::process()
   }
   else if(latest_tf_valid_)
   {
+    printf("3\n");
     // Nothing changed, so we'll just republish the last transform, to keep
     // everybody happy.
-    ros::Time transform_expiration = (gps.header.stamp +
+    ros::Time transform_expiration = (last_amcl_ts_ +
                                       transform_tolerance_);
     tf::StampedTransform tmp_tf_stamped(latest_tf_.inverse(),
                                         transform_expiration,
@@ -941,15 +949,16 @@ int AmclNode::process()
     if((save_pose_period.toSec() > 0.0) &&
        (now - save_pose_last_time) >= save_pose_period)
     {
+      printf("3a\n");
       // We need to apply the last transform to the latest odom pose to get
       // the latest map pose to store.  We'll take the covariance from
       // last_published_pose.
-      tf::Pose map_pose = latest_tf_.inverse() * odom_pose;
+      tf::Pose global_pose = latest_tf_.inverse() * odom_pose;
       double yaw,pitch,roll;
-      map_pose.getBasis().getEulerYPR(yaw, pitch, roll);
+      global_pose.getBasis().getEulerYPR(yaw, pitch, roll);
 
-      private_nh_.setParam("initial_pose_x", map_pose.getOrigin().x());
-      private_nh_.setParam("initial_pose_y", map_pose.getOrigin().y());
+      private_nh_.setParam("initial_pose_x", global_pose.getOrigin().x());
+      private_nh_.setParam("initial_pose_y", global_pose.getOrigin().y());
       private_nh_.setParam("initial_pose_a", yaw);
       private_nh_.setParam("initial_cov_xx", 
                                       last_published_pose.pose.covariance[6*0+0]);
@@ -1051,7 +1060,7 @@ void AmclNode::initialPoseReceived(const geometry_msgs::PoseWithCovarianceStampe
 }
 
 /**
- * If initial_pose_hyp_ and map_ are both non-null, apply the initial
+ * If initial_pose_hyp_ is both non-null, apply the initial
  * pose to the particle filter state.  initial_pose_hyp_ is deleted
  * and set to NULL after it is used.
  */
@@ -1059,7 +1068,7 @@ void AmclNode::applyInitialPose()
 {
   printf("Entering applyInitialPose\n");
   boost::recursive_mutex::scoped_lock cfl(configuration_mutex_);
-  if( initial_pose_hyp_ != NULL && map_ != NULL ) {
+  if( initial_pose_hyp_ != NULL ) {
     pf_init(pf_, initial_pose_hyp_->pf_pose_mean, initial_pose_hyp_->pf_pose_cov);
     pf_init_ = false;
 
