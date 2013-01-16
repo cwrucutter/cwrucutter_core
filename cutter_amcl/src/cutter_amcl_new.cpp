@@ -33,6 +33,7 @@
 #include "pf/pf.h"
 #include "sensors/amcl_odom.h"
 #include "sensors/amcl_gps.h"
+#include "sensors/amcl_beacon.h"
 
 #include "ros/assert.h"
 
@@ -47,6 +48,7 @@
 #include "geometry_msgs/Pose.h"
 #include "nav_msgs/GetMap.h"
 #include "std_srvs/Empty.h"
+#include "cutter_msgs/Beacon.h"
 
 // For transform support
 #include "tf/transform_broadcaster.h"
@@ -96,6 +98,7 @@ angle_diff(double a, double b)
 
 //static const std::string scan_topic_ = "scan";
 static const std::string gps_topic_ = "gps_pose";
+static const std::string beacon_topic_ = "/cwru/beacon";
 
 class AmclNode
 {
@@ -122,6 +125,7 @@ class AmclNode
     bool globalLocalizationCallback(std_srvs::Empty::Request& req,
                                     std_srvs::Empty::Response& res);
     void gpsReceived(const geometry_msgs::PoseStampedConstPtr& msg);
+    void beaconReceived(const cutter_msgs::BeaconConstPtr& msg);
     void initialPoseReceived(const geometry_msgs::PoseWithCovarianceStampedConstPtr& msg);
 
     void applyInitialPose();
@@ -146,18 +150,19 @@ class AmclNode
 
     geometry_msgs::PoseWithCovarianceStamped last_published_pose;
     geometry_msgs::PoseStamped last_gps_pose_;
+    cutter_msgs::Beacon last_beacon_range_;
 
     map_t* map_;
     char* mapdata;
     int sx, sy;
     double resolution;
 
-    //message_filters::Subscriber<geometry_msgs::PoseWithCovarianceStamped>* gps_sub_;
-    //tf::MessageFilter<geometry_msgs::PoseWithCovarianceStamped>* gps_filter_;
     ros::Subscriber gps_sub_;
+    ros::Subscriber beacon_sub_;
     ros::Subscriber initial_pose_sub_;
     bool pf_update_;
     bool gps_initialized_;
+    bool beacon_initialized_;
 
     // Particle filter
     pf_t *pf_;
@@ -170,6 +175,7 @@ class AmclNode
 
     AMCLOdom* odom_;
     AMCLGps* gps_;
+    AMCLBeacon* beacon_;
 
     ros::Duration cloud_pub_interval;
     ros::Time last_cloud_pub_time;
@@ -204,12 +210,15 @@ class AmclNode
     double alpha1_, alpha2_, alpha3_, alpha4_, alpha5_;
     double alpha_slow_, alpha_fast_;
     double sigma_gps_;
+    double sigma_beacon_range_, sigma_beacon_bearing_;
     odom_model_t odom_model_type_;
     double init_pose_[3];
     double init_cov_[3];
     gps_model_t gps_model_type_;
+    beacon_model_t beacon_model_type_;
 
     ros::Time last_gps_received_ts_;
+    ros::Time last_beacon_received_ts_;
     ros::Time last_amcl_ts_;
     ros::Duration gps_check_interval_;
     void checkGpsReceived(const ros::TimerEvent& event);
@@ -268,21 +277,8 @@ AmclNode::AmclNode() :
   private_nh_.param("odom_alpha3", alpha3_, 0.2);
   private_nh_.param("odom_alpha4", alpha4_, 0.2);
   private_nh_.param("odom_alpha5", alpha5_, 0.2);
-
-  // GPS parameters
-  private_nh_.param("use_gps", use_gps_, true);
-  private_nh_.param("gps_sigma", sigma_gps_, 0.01);
+  
   std::string tmp_model_type;
-  private_nh_.param("gps_model_type", tmp_model_type, std::string("leverarm"));
-  if(tmp_model_type == "leverarm")
-    gps_model_type_ = GPS_MODEL_LEVERARM;
-  else
-  {
-    ROS_WARN("Unknown gps model type \"%s\"; defaulting to leverarm model",
-             tmp_model_type.c_str());
-    gps_model_type_ = GPS_MODEL_LEVERARM;
-  }
-
   private_nh_.param("odom_model_type", tmp_model_type, std::string("diff"));
   if(tmp_model_type == "diff")
     odom_model_type_ = ODOM_MODEL_DIFF;
@@ -294,9 +290,37 @@ AmclNode::AmclNode() :
              tmp_model_type.c_str());
     odom_model_type_ = ODOM_MODEL_DIFF;
   }
- 
+
+  // GPS parameters
+  private_nh_.param("use_gps", use_gps_, true);
+  private_nh_.param("gps_sigma", sigma_gps_, 0.01);
+  private_nh_.param("gps_model_type", tmp_model_type, std::string("leverarm"));
+  if(tmp_model_type == "leverarm")
+    gps_model_type_ = GPS_MODEL_LEVERARM;
+  else
+  {
+    ROS_WARN("Unknown gps model type \"%s\"; defaulting to leverarm model",
+             tmp_model_type.c_str());
+    gps_model_type_ = GPS_MODEL_LEVERARM;
+  }
+
   // Beacon parameters
   private_nh_.param("use_beacon", use_beacon_, true);
+  private_nh_.param("beacon_range_sigma", sigma_beacon_range_, 0.3);
+  private_nh_.param("beacon_bearing_sigma", sigma_beacon_bearing_, 0.3);
+  private_nh_.param("beacon_model_type", tmp_model_type, std::string("rangeonly"));
+  if(tmp_model_type == "rangeonly")
+    beacon_model_type_ = BEACON_MODEL_RANGE_ONLY;
+  else if (tmp_model_type == "bearingonly")
+    beacon_model_type_ = BEACON_MODEL_BEARING_ONLY;
+  else if (tmp_model_type == "rangebearing")
+    beacon_model_type_ = BEACON_MODEL_RANGE_BEARING;
+  else
+  {
+    ROS_WARN("Unknown beacon model type \"%s\"; defaulting to rangeonly model",
+             tmp_model_type.c_str());
+    beacon_model_type_ = BEACON_MODEL_RANGE_ONLY;
+  }
  
   // More particle filter parameters
   private_nh_.param("update_min_d", d_thresh_, 0.1);
@@ -402,8 +426,21 @@ AmclNode::AmclNode() :
     gps_->SetModelLeverarm(sigma_gps_);
   ROS_INFO("Configured GPS and Odom Sensors");
   
+  // Beacon
+  delete beacon_;
+  beacon_ = new AMCLBeacon();
+  ROS_ASSERT(beacon_);
+  if(beacon_model_type_ == BEACON_MODEL_RANGE_ONLY)
+    beacon_->SetModelRangeOnly(sigma_beacon_range_);
+  else if(beacon_model_type_ == BEACON_MODEL_BEARING_ONLY)
+    beacon_->SetModelBearingOnly(sigma_beacon_bearing_);
+  else if(beacon_model_type_ == BEACON_MODEL_RANGE_BEARING)
+    beacon_->SetModelRangeBearing(sigma_beacon_range_, sigma_beacon_bearing_);
+  ROS_INFO("Configured Beacon Sensor");
+  
   // Subscribers
   gps_sub_ = nh_.subscribe(gps_topic_,2,&AmclNode::gpsReceived, this);
+  beacon_sub_ = nh_.subscribe(beacon_topic_,2,&AmclNode::beaconReceived, this);
   initial_pose_sub_ = nh_.subscribe("initialpose", 2, &AmclNode::initialPoseReceived, this);
 
   // 5s timer to warn on lack of receipt of gps data
@@ -553,7 +590,82 @@ void AmclNode::gpsReceived(const geometry_msgs::PoseStampedConstPtr& gps)
 
     gps_initialized_ = true;
   } 
+}
+
+void AmclNode::beaconReceived(const cutter_msgs::BeaconConstPtr& range)
+{ 
+  last_beacon_received_ts_ = ros::Time::now();
+  last_beacon_range_ = *range;
   
+  boost::recursive_mutex::scoped_lock lr(configuration_mutex_);
+
+  // Do we have the base->base_gps Tx yet? We need to know the location of 
+  //  the gps with respect to the robot origin
+  if(!beacon_initialized_)
+  {
+    ROS_INFO("Setting up beacon (frame_id=%s)\n", range->header.frame_id.c_str());
+    pf_update_ = true;
+
+    tf::Stamped<tf::Pose> ident1 (tf::Transform(tf::createIdentityQuaternion(), tf::Vector3(0,0,0)),
+                                 ros::Time(), range->header.frame_id.c_str()); 
+    tf::Stamped<tf::Pose> receiver_pose;
+    
+    tf::Stamped<tf::Pose> ident2 (tf::Transform(tf::createIdentityQuaternion(), tf::Vector3(0,0,0)),
+                                 ros::Time(), range->beacon_frame.c_str()); 
+    tf::Stamped<tf::Pose> beacon_pose;
+    
+    // Get the RECEIVER Offset from base_frame_id ("base_link")
+    try
+    {
+      this->tf_->transformPose(base_frame_id_, ident1, receiver_pose);
+    }
+    catch(tf::TransformException& e)
+    {
+      ROS_ERROR("Couldn't transform from %s to %s, "
+                "even though the message notifier is in use",
+                range->header.frame_id.c_str(),
+                base_frame_id_.c_str());
+      printf("Leaving beaconReceived\n");
+      return;
+    }
+        
+    // Get the BEACON offset from global_frame_id ("snowmap")
+    try
+    {
+      this->tf_->transformPose(global_frame_id_, ident2, beacon_pose);
+    }
+    catch(tf::TransformException& e)
+    {
+      ROS_ERROR("Couldn't transform from %s to %s, "
+                "even though the message notifier is in use",
+                range->beacon_frame.c_str(),
+                global_frame_id_.c_str());
+      printf("Leaving beaconReceived\n");
+      return;
+    }
+
+    pf_vector_t receiver_pose_v;
+    receiver_pose_v.v[0] = receiver_pose.getOrigin().x();
+    receiver_pose_v.v[1] = receiver_pose.getOrigin().y();
+    receiver_pose_v.v[2] = 0;
+    beacon_->SetReceiverPose(receiver_pose_v);
+    ROS_INFO("Received Ultrasound receiver pose wrt robot: %.3f %.3f %.3f",
+              receiver_pose_v.v[0],
+              receiver_pose_v.v[1],
+              receiver_pose_v.v[2]);
+              
+    pf_vector_t beacon_pose_v;
+    beacon_pose_v.v[0] = beacon_pose.getOrigin().x();
+    beacon_pose_v.v[1] = beacon_pose.getOrigin().y();
+    beacon_pose_v.v[2] = 0;
+    beacon_->SetBeaconPose(beacon_pose_v);
+    ROS_INFO("Received Ultrasound beacon pose wrt robot: %.3f %.3f %.3f",
+              beacon_pose_v.v[0],
+              beacon_pose_v.v[1],
+              beacon_pose_v.v[2]);        
+              
+    beacon_initialized_ = true;
+  } 
 }
 
 

@@ -70,7 +70,7 @@ def callback(data,pub):
     
     # Offset the GPS reading by the lever arm offset
     x = xy[0] + xoff*math.cos(ang[2])
-    y = xy[1] + xoff*math.sin(ang[2])
+    y = xy[1] + yoff*math.sin(ang[2])
     gps_x = x + random.gauss(0,std)
     gps_y = y + random.gauss(0,std)
     #print "testing"
