@@ -24,6 +24,7 @@
 #include <cutter_msgs/GetWayPoints.h>
 #include <cutter_msgs/State.h>
 #include <cutter_msgs/SlipStatus.h>
+#include <cutter_msgs/Switches.h>
 #include <algorithm>
 
 #define Hz 10
@@ -42,6 +43,7 @@ class CutterSteering
     void stateCB(const cutter_msgs::State &state);
     void wayPointCB(const cutter_msgs::WayPoint &wayPoint);
     void slipCB(const cutter_msgs::SlipStatus &slip);
+    void switchCB(const cutter_msgs::Switches &controls);
   
     double euclideanDistance(geometry_msgs::Point p, geometry_msgs::Point q);
     double distToLine(double a1x, double a1y, geometry_msgs::Point, geometry_msgs::Point);
@@ -51,6 +53,7 @@ class CutterSteering
     ros::NodeHandle nh_;
   
     ros::Publisher cmd_vel_pub_;
+    ros::Subscriber switch_sub_;
     ros::Subscriber state_sub_;
     ros::Subscriber slip_sub_;
     ros::Subscriber way_point_sub_;
@@ -112,11 +115,14 @@ void CutterSteering::stateCB(const cutter_msgs::State &state)
 }
 
 void CutterSteering::slipCB(const cutter_msgs::SlipStatus &slipstat){
-
   ROS_WARN("Got an updated slip status of %i", slipstat.slip);
   slipped = (slipstat.slip == 1);
 }
 
+void CutterSteering::switchCB(const cutter_msgs::Switches &controls){
+  ROS_WARN("Got an updated switch status.");
+  switchesgood = (controls.driveEnable && !controls.switchA);
+}
 
 //##constructor##
 CutterSteering::CutterSteering():
@@ -137,6 +143,7 @@ CutterSteering::CutterSteering():
   state_sub_ = nh_.subscribe("cwru/state",1,&CutterSteering::stateCB,this);
   way_point_sub_ = nh_.subscribe("cwru/waypoint",1,&CutterSteering::wayPointCB,this);
   slip_sub_ = nh_.subscribe("cwru/slip",1,&CutterSteering::slipCB,this);
+  switch_sub_ = nh_.subscribe("cwru/switches",1,&CutterSteering::switchCB,this);
 
   //set up publisher
   cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>("cmd_vel",1);
@@ -259,11 +266,11 @@ double CutterSteering::distToLine(double a1x, double a1y, geometry_msgs::Point t
 void CutterSteering::steer()
 {
 
-  /*if(!switchesgood){
+  if(!switchesgood){
     ROS_WARN("Steering is currently disabled. Make sure switch A is set to \"ITX cmd_vel\" and driving is enabled.");
     publishVW(0,0);
     return;
-  }*/
+  }
   if (!got_state_)
   {
     ROS_WARN("Steering tried to steer, but hasn't got a state");
