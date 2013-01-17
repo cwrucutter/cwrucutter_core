@@ -61,6 +61,7 @@ class CutterSteering
     //parameters
     double v_max_;
     double w_max_;
+    double stall_time_;
     double v_a_max_;
     double w_a_max_;
     double K_wc_proportional_;
@@ -73,10 +74,10 @@ class CutterSteering
     bool got_state_;
     bool got_waypoint_;
     bool initial_align;
-    bool slipped;
-    bool sliprecover;
-    double pointofstall;
-    bool switchesgood;
+    bool slipped_;
+    bool sliprecover_;
+    double pointofstall_;
+    bool switchesgood_;
     geometry_msgs::Twist last_cmd_vel_;
     cutter_msgs::State last_state_;
     cutter_msgs::State state_;
@@ -114,19 +115,21 @@ void CutterSteering::stateCB(const cutter_msgs::State &state)
   got_state_ = true;
 }
 
-void CutterSteering::slipCB(const cutter_msgs::SlipStatus &slipstat){
-  ROS_WARN("Got an updated slip status of %i", slipstat.slip);
-  slipped = (slipstat.slip == 1);
+void CutterSteering::slipCB(const cutter_msgs::SlipStatus &slipstat)
+{
+  ROS_INFO("Got an updated slip status of %i", slipstat.slip);
+  slipped_ = (slipstat.slip == 1);
 }
 
-void CutterSteering::switchCB(const cutter_msgs::Switches &controls){
-  ROS_WARN("Got an updated switch status.");
-  switchesgood = (controls.driveEnable && !controls.switchA);
+void CutterSteering::switchCB(const cutter_msgs::Switches &controls)
+{
+  ROS_INFO("Got an updated switch status.");
+  switchesgood_ = (controls.driveEnable && !controls.switchA);
 }
 
 //##constructor##
 CutterSteering::CutterSteering():
-  v_max_(1.0), w_max_(1.0), v_a_max_(1.0), w_a_max_(1.0), K_wc_proportional_(0.1),K_wth_proportional_(0.1), v_deadband_(.001), w_deadband_(.001) //params(defaults)
+  v_max_(1.0), w_max_(1.0), v_a_max_(1.0), w_a_max_(1.0), K_wc_proportional_(0.1),K_wth_proportional_(0.1), v_deadband_(.001), w_deadband_(.001), switchesgood_(true)//params(defaults)
 {
 
   //member variable initializations
@@ -199,6 +202,7 @@ bool CutterSteering::lookupParams()
 {
   bool test = true;
   test = ros::param::get("~v_max", v_max_) && test;
+  test = ros::param::get("~stall_time", stall_time_) && test;
   test = ros::param::get("~w_max", w_max_) && test;
   test = ros::param::get("~v_a_max", v_a_max_) && test;
   test = ros::param::get("~w_a_max", w_a_max_) && test;
@@ -266,7 +270,7 @@ double CutterSteering::distToLine(double a1x, double a1y, geometry_msgs::Point t
 void CutterSteering::steer()
 {
 
-  if(!switchesgood){
+  if(!switchesgood_){
     ROS_WARN("Steering is currently disabled. Make sure switch A is set to \"ITX cmd_vel\" and driving is enabled.");
     publishVW(0,0);
     return;
@@ -299,15 +303,15 @@ void CutterSteering::steer()
 
   ROS_INFO("Robot (%.2f,%2f), Intitial position of robot was (%.2f,%.2f), distance to next waypoint (%.2f,%.2f): %f", map_pose_.position.x, map_pose_.position.y, initialX, initialY, target_waypoint_.pose.position.x, target_waypoint_.pose.position.y, targetDistance);
 
-  if (false)//TODO: Tom has no idea what this thing is. The velocity will be set to 5 if it is triggered, causing the robot to spiral out of control. (Originally the if statement contained "yDistance == 0 || xDistance ==0"
+  /*if (false)//TODO: Tom has no idea what this thing is. The velocity will be set to 5 if it is triggered, causing the robot to spiral out of control. (Originally the if statement contained "yDistance == 0 || xDistance ==0"
   {
     ROS_WARN("Starting up? xDistance or yDistance from robot to waypoint is 0!!");
     targetTheta = 0;
   }
   else
-  {
+  {*/
     targetTheta = atan2(yDistance * (target_waypoint_.direction - 2.0), xDistance * (target_waypoint_.direction - 2.0));
-  }
+  //}
 
   robotTheta = tf::getYaw(map_pose_.orientation);
   ROS_INFO("Angle to target: %f \t\t Angle of robot: %f", targetTheta, robotTheta);
@@ -318,6 +322,7 @@ void CutterSteering::steer()
   {
     ROS_WARN("State is out of date!!");
     w = 0;
+    v = 0;
   }
   else
   {
@@ -384,18 +389,18 @@ void CutterSteering::steer()
         v = targetDistance*K_v_proportional_;
 	    w = K_wc_proportional_ * c - K_wth_proportional_ * thetaError;
 	    ROS_INFO("Progressing to target.");
-	if(slipped){
+	if(slipped_){
 	    ROS_WARN("Stalled!!!!!");
-            pointofstall = ros::Time::now().toSec();
-            ROS_INFO("Time of stall was %f.", pointofstall);
-	    slipped = false;
-	    sliprecover = true;
+            pointofstall_ = ros::Time::now().toSec();
+            ROS_INFO("Time of stall was %f.", pointofstall_);
+	    slipped_ = false;
+	    sliprecover_ = true;
 	}
-	if(sliprecover){
+	if(sliprecover_){
 	    w = 0.0;
 	    v = -1.0 * v;
-	    if(ros::Time::now().toSec() > pointofstall + 3.0){
-		sliprecover = false;
+	    if(ros::Time::now().toSec() > pointofstall_ + stall_time_){
+		sliprecover_ = false;
 	    }
 	}
       }

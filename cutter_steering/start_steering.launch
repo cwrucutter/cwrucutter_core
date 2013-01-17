@@ -7,5 +7,6 @@
     <param name="w_a_max" value=".5" type="double"/>
     <param name="v_max" value=".5" type="double"/>
     <param name="v_a_max" value=".5" type="double"/>
+    <param name="stall_time" value="3.0" type="double"/>
   </node>
 </launch>
