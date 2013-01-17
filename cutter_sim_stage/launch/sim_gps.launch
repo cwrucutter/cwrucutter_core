@@ -1,6 +1,6 @@
 <launch>
   <!-- Publish the static transform from base_link to base_gps -->
-  <node pkg="tf" type="static_transform_publisher" name="base_gps" args="-.45 0 0 0 0 0 base_link base_gps 100"/>
+  <node pkg="tf" type="static_transform_publisher" name="base_gps" args="-0.45 0 0 0 0 0 base_link base_gps 100"/>
 
   <!-- Simulate a noisy gps with an offset -->
   <node pkg="cutter_sim_stage" type="sim_sensor_gps.py" name="sensor_gps"/>

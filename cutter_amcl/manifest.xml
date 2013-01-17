@@ -15,6 +15,7 @@
   <depend package="nav_msgs" />
   <depend package="std_srvs" />
   <depend package="dynamic_reconfigure" />
+  <depend package="cutter_msgs" />
 
 </package>
 

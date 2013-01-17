@@ -1,0 +1,16 @@
+<package>
+  <description brief="cutter_survey">
+
+     cutter_survey
+
+  </description>
+  <author>CWRUCutter</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/cutter_survey</url>
+  <depend package="rospy"/>
+  <depend package="tf"/>
+
+</package>
+
+
