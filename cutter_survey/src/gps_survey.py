@@ -33,11 +33,14 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import roslib
-roslib.load_manifest('cutter_localization')
+roslib.load_manifest('cutter_survey')
 import rospy
 import sys
 from geometry_msgs.msg import PoseStamped
 from std_srvs.srv import Empty
+
+# syntax to start the node: 
+#   rosrun cutter_survey gps_survey.py _filename:=filenamehere
 
 class Surveyor:
     def __init__(self):
@@ -45,7 +48,7 @@ class Surveyor:
         rospy.init_node('gps_surveyor')
         topic_in  = rospy.get_param('~topic_in','/gps_pose')
         filename = rospy.get_param('~filename','surveyed.txt')
-        self.file = roslib.packages.get_pkg_dir('cutter_localization')+'/survey/'+filename
+        self.file = roslib.packages.get_pkg_dir('cutter_survey')+'/survey/'+filename
         
         rospy.loginfo('Subscribing to: '+topic_in)
         rospy.loginfo('Output file will be: '+ self.file)
