@@ -36,6 +36,8 @@ import roslib
 roslib.load_manifest('cutter_survey')
 import rospy
 import sys
+import collections
+
 from geometry_msgs.msg import PoseStamped
 from std_srvs.srv import Empty
 
@@ -48,6 +50,7 @@ class Surveyor:
         rospy.init_node('gps_surveyor')
         topic_in  = rospy.get_param('~topic_in','/gps_pose')
         filename = rospy.get_param('~filename','surveyed.txt')
+        window_size = rospy.get_param('~window_size',10) # magic number 10 would be (GPScallbackHz)*(windowlengthinseconds), assuming 10Hz and 1-second window
         self.file = roslib.packages.get_pkg_dir('cutter_survey')+'/survey/'+filename
         
         rospy.loginfo('Subscribing to: '+topic_in)
@@ -55,24 +58,36 @@ class Surveyor:
         
         # Initialize
         self.coords = (0.0, 0.0, 0.0)
+	self.average = (0.0, 0.0, 0.0)
+	self.history = collections.deque(maxlen=window_size)  
         
         # Start the ROS stuff
         rospy.Subscriber(topic_in, PoseStamped, self.GPSCallback)
         rospy.Service('survey_gps_point', Empty, self.SurveyServer)
         rospy.spin()
+
         
     def GPSCallback(self, data):
         # GPS Calback: Called when a new gps point arrives
         self.coords = (data.pose.position.x, data.pose.position.y, data.pose.position.z)
-        sys.stdout.write("Current GPS point: (%f, %f, %f) \r" % (data.pose.position.x, data.pose.position.y, data.pose.position.z))
+	self.history.append(self.coords)
+	self.average = (mean(map(lambda x: x[0], self.history)), mean(map(lambda y: y[1], self.history)), mean(map(lambda z: z[2], self.history))) 
+	sys.stdout.write("Current GPS point: (%f, %f, %f) \t\t Average point: (%f, %f, %f)\r" \
+			% (data.pose.position.x, data.pose.position.y, data.pose.position.z,  \
+			self.average[0], self.average[1], self.average[2])) 
         sys.stdout.flush()
 
     def SurveyServer(self, req):
         # Survey Server: Called to record the point
-        rospy.loginfo("Surveying... Point: %s", ('%f, %f, %f' % self.coords) )
+	#rospy.loginfo("Surveying... LastPoint: %s ", ('%f, %f, %f' % self.coords) )
+	rospy.loginfo("Surveying... AveragePoint: %s ", ('%f, %f, %f' % self.average) )
         with open(self.file,'a') as f:
-            write_data = f.write(str('%f, %f, %f\n' % self.coords))
+            #write_data = f.write(str('%f, %f, %f\n' % self.coords))
+	    write_data = f.write(str('%f, %f, %f\n' % self.average))
         return []
+
+def mean(l):
+    return float(sum(l))/len(l) if len(l) > 0 else float('nan')
 
 if __name__ == "__main__":
     try:
