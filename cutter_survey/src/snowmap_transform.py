@@ -129,11 +129,12 @@ class SnowmapTransformer:
                     dist.append(distA-distB)
             thtOff = float(sum(tht)/len(tht)) if len(tht) > 0 else float('nan')
             distMax = max(dist)
-            if distMax > 1:
-                rospy.logerr("Cannot complete transformation. " 
-                             + "Surveyed and Predicted points do not align. "
-                             + "Distance offset: " + str(distMax) )
-                return 0
+            #print dist
+            #if distMax > 1:
+            #    rospy.logerr("Cannot complete transformation. " 
+            #                 + "Surveyed and Predicted points do not align. "
+            #                 + "Distance offset: " + str(distMax) )
+            #    return 0
             
             # 2. Find the Translation offset
             xvals = []
@@ -158,6 +159,7 @@ class SnowmapTransformer:
             print tht
             print " - Max Distance Offset:"
             print distMax
+            print dist
             print " - Average Angle:"
             print thtOff
             print "\n - Possible Translations:"

@@ -1,7 +1,7 @@
 <launch>
   <!-- Set the GPS Reference Point -->
-  <param name="ref_lat" value="41.50127187" type="double"/>
-  <param name="ref_lon" value="-81.6064103" type="double"/>
+  <param name="ref_lat" value="41.502455676" type="double"/>
+  <param name="ref_lon" value="-81.605739735" type="double"/>
   <param name="ref_alt" value="218" type="double"/>
 
   <!-- Launch the Novatel GPS converter node from Lat/Lon/Velocity to Pose -->

@@ -554,7 +554,7 @@ void AmclNode::gpsReceived(const geometry_msgs::PoseStampedConstPtr& gps)
   
   try
   {
-    this->tf_->transformPose(global_frame_id_, ros::Time(gps->header.stamp),
+    this->tf_->transformPose(global_frame_id_, ros::Time(gps->header.stamp)- ros::Duration(0.2),
                          (*gps), gps->header.frame_id, gps_tf);
     ROS_INFO("GPS Map: %f, %f    GPS Snowmap: %f, %f", gps->pose.position.x, gps->pose.position.y,
                                                        gps_tf.pose.position.x, gps_tf.pose.position.y);
