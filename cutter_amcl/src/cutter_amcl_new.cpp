@@ -549,10 +549,28 @@ bool AmclNode::globalLocalizationCallback(std_srvs::Empty::Request& req,
 
 void AmclNode::gpsReceived(const geometry_msgs::PoseStampedConstPtr& gps)
 { 
-  last_gps_received_ts_ = ros::Time::now();
-  last_gps_pose_ = *gps;
-  
   boost::recursive_mutex::scoped_lock lr(configuration_mutex_);
+  geometry_msgs::PoseStamped gps_tf;
+  
+  try
+  {
+    this->tf_->transformPose(global_frame_id_, ros::Time(gps->header.stamp),
+                         (*gps), gps->header.frame_id, gps_tf);
+    ROS_INFO("GPS Map: %f, %f    GPS Snowmap: %f, %f", gps->pose.position.x, gps->pose.position.y,
+                                                       gps_tf.pose.position.x, gps_tf.pose.position.y);
+  }
+  catch(tf::TransformException& e)
+  {
+      ROS_ERROR("Couldn't transform GPS from %s to %s. Skipping GPS message ",
+                gps->header.frame_id.c_str(),
+                global_frame_id_.c_str());
+      printf("Leaving gpsReceived\n");
+      return;
+  }
+  
+  last_gps_received_ts_ = ros::Time::now();
+  last_gps_pose_ = gps_tf;
+  
 
   // Do we have the base->base_gps Tx yet? We need to know the location of 
   //  the gps with respect to the robot origin
@@ -675,14 +693,15 @@ void AmclNode::beaconReceived(const cutter_msgs::BeaconConstPtr& range)
 
 int AmclNode::process()
 {
+  boost::recursive_mutex::scoped_lock lr(configuration_mutex_);
+  last_amcl_ts_ = ros::Time::now();
+  double startTime = ros::Time::now().toSec();
+  
   bool gps_new = (last_gps_received_ts_ - last_amcl_ts_) > ros::Duration(0.0);
   bool beacon_new = (last_beacon_received_ts_ - last_amcl_ts_) > ros::Duration(0.0);;
   geometry_msgs::PoseStamped gps = last_gps_pose_;
   cutter_msgs::Beacon beacon = last_beacon_range_;
   
-  boost::recursive_mutex::scoped_lock lr(configuration_mutex_);
-  last_amcl_ts_ = ros::Time::now();
-  double startTime = ros::Time::now().toSec();
   
   // 1. GET ODOMETRY
   tf::Stamped<tf::Pose> odom_pose;

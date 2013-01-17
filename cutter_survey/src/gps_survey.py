@@ -47,7 +47,7 @@ class Surveyor:
         # Start the node
         rospy.init_node('gps_surveyor')
         topic_in  = rospy.get_param('~topic_in','/gps_pose')
-        filename = rospy.get_param('~filename','surveyed.txt')
+        filename = rospy.get_param('~filename','survey.txt')
         self.file = roslib.packages.get_pkg_dir('cutter_survey')+'/survey/'+filename
         
         rospy.loginfo('Subscribing to: '+topic_in)
