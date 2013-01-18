@@ -16,7 +16,8 @@ class CutterPlanner
     CutterPlanner();
 
   private:
-    bool getWayPointService(cutter_msgs::GetWayPoints::Request &req, cutter_msgs::GetWayPoints::Response &res);
+    bool getWayPointService(cutter_msgs::GetWayPoints::Request &req, 
+			    cutter_msgs::GetWayPoints::Response &res);
     bool readWayPointsFromFile(std::string filename);
     void parseStringFormat(std::string line, cutter_msgs::WayPoint &tempWP);
 
@@ -27,8 +28,8 @@ class CutterPlanner
 };
 
 
-bool CutterPlanner::getWayPointService(
-    cutter_msgs::GetWayPoints::Request &req, cutter_msgs::GetWayPoints::Response &res)
+bool CutterPlanner::getWayPointService(cutter_msgs::GetWayPoints::Request &req,
+				       cutter_msgs::GetWayPoints::Response &res)
 {
   if (req.increment)
   {
@@ -48,36 +49,47 @@ bool CutterPlanner::getWayPointService(
   else
     res.nextWayPoint = cutter_msgs::WayPoint();
 
-  ROS_INFO("Request: continue: %d, totalPoints: %d, currentPoint: %d, pointsLeft: %d", req.increment, totalPoints_, currentPoint_, res.pointsLeft);
+  ROS_INFO("Request: continue: %d, totalPoints: %d, currentPoint: %d, pointsLeft: %d",
+	 req.increment, totalPoints_, currentPoint_, res.pointsLeft);
   return true;
 }
 
-void CutterPlanner::parseStringFormat(std::string line, cutter_msgs::WayPoint &tempWP){
+void CutterPlanner::parseStringFormat(std::string line, cutter_msgs::WayPoint &tempWP)
+{
       int lastcomma;
       //ROS_INFO("Waypoint coord 1: %f",strtod(line.substr(line.find_first_of("(")+1,line.find_first_of(",")-1).c_str(),NULL));
-      tempWP.pose.position.x = strtod(line.substr(line.find_first_of("(")+1,line.find_first_of(",")-1).c_str(),NULL);
+      tempWP.pose.position.x = strtod(line.substr(line.find_first_of("(")+1,
+				      line.find_first_of(",")-1).c_str(), NULL);
       //ROS_INFO("Waypoint coord 1: %f",strtod(line.substr(line.find_first_of("(")+1,line.find_first_of(",")-1).c_str(),NULL));
-      tempWP.pose.position.y = strtod(line.substr(line.find_first_of(",")+1,line.find_first_of(",",line.find_first_of(",")+1)-1).c_str(), NULL);
-      lastcomma = line.find_first_of(",",line.find_first_of(",")+1)+1;
-      tempWP.pose.orientation = tf::createQuaternionMsgFromYaw(strtod(line.substr(lastcomma, line.find_first_of(",", lastcomma)-lastcomma).c_str(), NULL));
-      lastcomma = line.find_first_of(",",lastcomma + 1)+1;
+      tempWP.pose.position.y = strtod(line.substr(line.find_first_of(",")+1,
+		line.find_first_of(",", line.find_first_of(",")+1)-1).c_str(), NULL);
+      lastcomma = line.find_first_of(",", line.find_first_of(",")+1)+1;
+
+      tempWP.pose.orientation = tf::createQuaternionMsgFromYaw(strtod(line.substr(
+		lastcomma, line.find_first_of(",", lastcomma)-lastcomma).c_str(), NULL));
+      lastcomma = line.find_first_of(",", lastcomma + 1)+1;
+
       tempWP.distanceTol = strtod(line.substr(lastcomma, line.find_first_of(",", lastcomma)-lastcomma).c_str(), NULL);
       //ROS_INFO("WAYPOINT DTOL VALUE IS %f", tempWP.distanceTol);
       //ROS_INFO("Recovered direction string %s", line.substr(line.find_first_of(")")-1, 1).c_str());
-      tempWP.direction = (strtod(line.substr(line.find_first_of(")")-1, 1).c_str(), NULL));//Directional tag. 0 for foreward, 1 for reverse. Since this uses doubles (because I am lazy), other values will work, but will cause odd behavior.
+      tempWP.direction = (strtod(line.substr(line.find_first_of(")")-1, 1).c_str(), NULL));//Directional tag. 3 for forward, 1 for reverse. Since this uses doubles (because I am lazy), other values will work, but will cause odd behavior.
       //ROS_INFO("WAYPOINT REVERSE VALUE IS %f", strtod(line.substr(line.find_first_of(")")-1, 1).c_str(), NULL));
 }
+
+
 bool CutterPlanner::readWayPointsFromFile(std::string filename)
 {
-ROS_INFO("Got path %s", filename.c_str());
+  ROS_INFO("Got path %s", filename.c_str());
   cutter_msgs::WayPoint tempWP;
   const char * name = filename.c_str();
   std::fstream points_list;
   points_list.open(name);
-  if(!(points_list.is_open())){//Check if the file exists.
+  if(!(points_list.is_open()))
+  {   //Check if the file exists.
       ROS_INFO("Could not open waypoint file %s.",name);
       return false;
   }
+
   std::string line;
   vector<string> nums;
   while (true){
@@ -104,12 +116,10 @@ CutterPlanner::CutterPlanner()
   ROS_INFO("Got file %s", file.c_str());
   std::string path = ros::package::getPath("cutter_planning");
 
-  
-  
   readWayPointsFromFile(path + "/p/" + file);
 
   ROS_INFO("Advertising service");
-  wp_srv_ = nh_.advertiseService("get_waypoint", &CutterPlanner::getWayPointService, this );
+  wp_srv_ = nh_.advertiseService("get_waypoint", &CutterPlanner::getWayPointService, this);
 
 }
 
