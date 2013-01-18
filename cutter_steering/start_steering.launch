@@ -1,11 +1,11 @@
 <launch>
   <node pkg="cutter_steering" type="steering" name="steering" output="screen">
-    <param name="K_wc_proportional" value="1" type="double"/>
-    <param name="K_wth_proportional" value="1" type="double"/>
+    <param name="K_wc_proportional" value="1.0" type="double"/>
+    <param name="K_wth_proportional" value="1.2" type="double"/>
     <param name="K_v_proportional" value=".5" type="double"/>
     <param name="w_max" value=".5" type="double"/>
     <param name="w_a_max" value=".5" type="double"/>
-    <param name="v_max" value=".5" type="double"/>
+    <param name="v_max" value=".8" type="double"/>
     <param name="v_a_max" value=".5" type="double"/>
     <param name="stall_time" value="3.0" type="double"/>
   </node>
