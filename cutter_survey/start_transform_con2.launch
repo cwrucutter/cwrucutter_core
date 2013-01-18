@@ -1,5 +1,5 @@
 <launch>
-  <node pkg="cutter_survey" type="snowmap_transform_oneside.py">
+  <node pkg="cutter_survey" type="snowmap_transform_oneside.py" name="snowmap_tf">
     <param name="file_survey" value="survey_con2.txt"/>
     <param name="file_snowmap" value="snowmap_con2.txt"/>
   </node>

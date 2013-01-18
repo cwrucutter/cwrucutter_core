@@ -48,8 +48,9 @@
 class AmclToState
 {
 public:
-  AmclToState() : tf_(),  target_frame_("map")
+  AmclToState() : tf_(),  target_frame_("snowmap")
   {
+    // TODO: Make the target frame and the message configurable!
     odom_sub_.subscribe(nh_, "odom", 10);
     tf_filter_ = new tf::MessageFilter<nav_msgs::Odometry>(odom_sub_, tf_, target_frame_, 10);
     tf_filter_->registerCallback( boost::bind(&AmclToState::msgCallback, this, _1) );
