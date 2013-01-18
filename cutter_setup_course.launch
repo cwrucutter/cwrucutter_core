@@ -1,0 +1,11 @@
+<!-- This file starts the snowplow course setup: Transformation, planning -->
+<launch>
+   <arg name="course"/>
+
+   <!-- Start the transformation -->
+   <include file="$(find cutter_survey)/start_transform_$(arg course).launch" />
+
+   <!-- Start the planning node -->
+   <include file="$(find cutter_planning)/start_planning_$(arg course).launch" />
+
+</launch>
