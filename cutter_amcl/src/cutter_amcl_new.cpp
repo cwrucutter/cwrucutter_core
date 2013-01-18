@@ -538,11 +538,18 @@ bool AmclNode::globalLocalizationCallback(std_srvs::Empty::Request& req,
   ROS_INFO("Entering globalLocalizationCallback\n");
   
   boost::recursive_mutex::scoped_lock gl(configuration_mutex_);
-  ROS_INFO("Initializing with uniform distribution");
-  pf_init_model(pf_, (pf_init_model_fn_t)AmclNode::uniformPoseGenerator,
-                (void *)&last_gps_pose_);
-  ROS_INFO("Global initialisation done!");
-  pf_init_ = false;
+  if (gps_initialized_)
+  {
+    ROS_INFO("Initializing with uniform distribution");
+    pf_init_model(pf_, (pf_init_model_fn_t)AmclNode::uniformPoseGenerator,
+                  (void *)&last_gps_pose_);
+    ROS_INFO("Global initialisation done!");
+    pf_init_ = false;
+  }
+  else
+  {
+    ROS_ERROR("Tried to run globalLocalization before GPS received");
+  }
   ROS_INFO("Leaving globalLocalizationCallback\n");
   return true;
 }
@@ -554,7 +561,7 @@ void AmclNode::gpsReceived(const geometry_msgs::PoseStampedConstPtr& gps)
   
   try
   {
-    this->tf_->transformPose(global_frame_id_, ros::Time(gps->header.stamp)- ros::Duration(0.2),
+    this->tf_->transformPose(global_frame_id_, ros::Time(gps->header.stamp)-ros::Duration(0.2),
                          (*gps), gps->header.frame_id, gps_tf);
     ROS_INFO("GPS Map: %f, %f    GPS Snowmap: %f, %f", gps->pose.position.x, gps->pose.position.y,
                                                        gps_tf.pose.position.x, gps_tf.pose.position.y);
@@ -576,7 +583,7 @@ void AmclNode::gpsReceived(const geometry_msgs::PoseStampedConstPtr& gps)
   //  the gps with respect to the robot origin
   if(!gps_initialized_)
   {
-    ROS_INFO("Setting up gps (frame_id=%s)\n", gps->header.frame_id.c_str());
+    ROS_INFO("Setting up gps (frame_id=%s)\n", gps_tf.header.frame_id.c_str());
     pf_update_ = true;
 
     tf::Stamped<tf::Pose> ident (tf::Transform(tf::createIdentityQuaternion(),
@@ -611,6 +618,9 @@ void AmclNode::gpsReceived(const geometry_msgs::PoseStampedConstPtr& gps)
               gps_pose_v.v[2]);
 
     gps_initialized_ = true;
+    std_srvs::Empty::Request req;
+    std_srvs::Empty::Response res;
+    globalLocalizationCallback(req, res);
   } 
 }
 
@@ -694,13 +704,14 @@ void AmclNode::beaconReceived(const cutter_msgs::BeaconConstPtr& range)
 int AmclNode::process()
 {
   boost::recursive_mutex::scoped_lock lr(configuration_mutex_);
-  last_amcl_ts_ = ros::Time::now();
-  double startTime = ros::Time::now().toSec();
   
   bool gps_new = (last_gps_received_ts_ - last_amcl_ts_) > ros::Duration(0.0);
   bool beacon_new = (last_beacon_received_ts_ - last_amcl_ts_) > ros::Duration(0.0);;
   geometry_msgs::PoseStamped gps = last_gps_pose_;
   cutter_msgs::Beacon beacon = last_beacon_range_;
+  
+  last_amcl_ts_ = ros::Time::now();
+  double startTime = ros::Time::now().toSec();
   
   
   // 1. GET ODOMETRY
@@ -775,6 +786,12 @@ int AmclNode::process()
   // 3. SENSOR UPDATE
   //    Modify the particle weight based on each sensor
   // Sensor 1: GPS
+  if (pf_update_)
+    printf("pf_update_ true\n");
+  if (gps_new)
+    printf("gps_new true\n");
+  if (use_gps_)
+    printf("use_gps_ true\n");
   if(pf_update_ && gps_new && use_gps_)  
   {
     printf("GPS Update\n");

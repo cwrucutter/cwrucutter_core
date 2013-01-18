@@ -5,10 +5,10 @@
     <!-- Odometry -->
     <param name="odom_frame_id" value="odom"/>
     <param name="odom_model_type" value="diff"/>
-    <param name="odom_alpha1" value="1.2"/>
-    <param name="odom_alpha2" value="1.2"/>
-    <param name="odom_alpha3" value="1"/>
-    <param name="odom_alpha4" value="1"/>
+    <param name="odom_alpha1" value="1.5"/>
+    <param name="odom_alpha2" value="1.5"/>
+    <param name="odom_alpha3" value="1.5"/>
+    <param name="odom_alpha4" value="1.5"/>
     <param name="odom_alpha5" value="0.4"/>
     <!-- GPS -->
     <param name="use_gps" value="true" />
