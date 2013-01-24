@@ -149,7 +149,7 @@ if __name__ == "__main__":
             print hex(parser.beaconRange)
 
             # PARSE MESSAGE
-            if (not parser.num_beacon == '\xEE'):
+            if (not parser.num_beacon > 5):
                 timeNow = rospy.get_rostime()
                 # Set the header
                 beaconMsg.header.stamp = timeNow
