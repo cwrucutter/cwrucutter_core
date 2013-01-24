@@ -129,7 +129,7 @@ void CutterSteering::switchCB(const cutter_msgs::Switches &controls)
 
 //##constructor##
 CutterSteering::CutterSteering():
-  v_max_(1.0), w_max_(1.0), v_a_max_(1.0), w_a_max_(1.0), K_wc_proportional_(0.1),K_wth_proportional_(0.1), v_deadband_(.001), w_deadband_(.001), switchesgood_(true)//params(defaults)
+  v_max_(1.0), w_max_(1.0), v_a_max_(1.0), w_a_max_(1.0), K_wc_proportional_(0.1),K_wth_proportional_(0.1), v_deadband_(.001), w_deadband_(.001), switchesgood_(true), slipped_(false)//params(defaults)
 {
 
   //member variable initializations
@@ -380,7 +380,7 @@ void CutterSteering::steer()
 	v = 0.0;
         w = -K_wth_proportional_*thetaError;
         ROS_INFO("Set w: %f", w);
-	initial_align = (fabs(thetaError) > 0.1);
+	initial_align = (fabs(thetaError) > 0.05);
       }
       else
       {
