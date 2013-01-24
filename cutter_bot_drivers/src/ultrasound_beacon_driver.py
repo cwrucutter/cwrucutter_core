@@ -40,23 +40,12 @@ from cutter_msgs.msg import Beacon
 import serial, string, math, time, calendar, struct
 
 
-#Add the tf_prefix to the given frame id
-def addTFPrefix(frame_id):
-    prefix = ""
-    prefix_param = rospy.search_param("tf_prefix")
-    if prefix_param:
-        prefix = rospy.get_param(prefix_param)
-        if prefix[0] != "/":
-            prefix = "/%s" % prefix
-
-    return "%s/%s" % (prefix, frame_id)
-
 #Calculates the checksum for our custom message type
 # --> XOR Of all bytes 
 def CalculateChkSum(data):
     CRC = 0
     for idx in range(len(data)):
-        CRC = CRC ^ data[idx]
+        CRC = CRC ^ int(data[idx])
     return CRC
 
 class BeaconParser:
@@ -94,7 +83,8 @@ class BeaconParser:
         """
         if len(data) != 2:
             return False
-        self.beaconRange = struct.unpack('<h',data)
+        output = struct.unpack('>H',data)
+        self.beaconRange = output[0]
         return True
     
     def PopulateMsg(self, beaconMsg):
@@ -104,7 +94,7 @@ class BeaconParser:
         # Set the frame where the range originated (beacon number)
         beaconMsg.beacon_frame = 'beacon_'+str(parser.num_beacon)
         # Set the range and bearing
-        beaconMsg.range = self.beaconRange
+        beaconMsg.range = float(self.beaconRange)
         beaconMsg.bearing = 0.0  # not included here (range-only beacons)
         
       
@@ -121,7 +111,7 @@ if __name__ == "__main__":
     parser = BeaconParser()
     
     try:
-        SRL = serial.Serial(port=beaconPort, baudrate=beaconRate, timeout=.01)
+        SRL = serial.Serial(port=beaconPort, baudrate=beaconRate, timeout=5)
         #Read in GPS data
         sync0 = '\x00'; sync1 = '\x00'; sync2 = '\x00';
         while not rospy.is_shutdown():
@@ -131,7 +121,6 @@ if __name__ == "__main__":
             sync  = sync1+sync0;
             match = '\x55\xAA'
             if sync != match:
-                rospy.loginfo("Sync message failed")
                 continue
             else:
                 rospy.loginfo("Beginning new message")
@@ -146,25 +135,32 @@ if __name__ == "__main__":
 
             # READ MESSAGE
             msg = SRL.read(2)
-            if (not parser.ParseMessage(data)):
+            if (not parser.ParseMessage(msg)):
                 rospy.logwarn("Packet Failed: Error reading message data");
                 continue
-
+                
             # READ CRC
-            chk = GPS.read(1)
+            chk = SRL.read(1)
             if (not parser.VerifyChecksum(header+msg,chk)):
                 rospy.logwarn("Packet Failed: CRC Did not Match")
                 continue
+                
+            print parser.beaconRange
+            print hex(parser.beaconRange)
 
             # PARSE MESSAGE
-            timeNow = rospy.get_rostime()
-            # Set the header
-            beaconMsg.header.stamp = timeNow
-            beaconMsg.header.frame_id = 'base_ranger_1'
-            # Populate the message based on the parsed data
-            parser.populateMsg(beaconMsg)
-            # Publish the message
-            beaconPub.publish(beaconMsg)
+            if (not parser.num_beacon == '\xEE'):
+                timeNow = rospy.get_rostime()
+                # Set the header
+                beaconMsg.header.stamp = timeNow
+                beaconMsg.header.frame_id = 'base_ranger_1'
+                # Populate the message based on the parsed data
+                parser.PopulateMsg(beaconMsg)
+                # Publish the message
+                beaconPub.publish(beaconMsg)
+            else:
+                rospy.logwarn("Beacon Error! Not publishing data")
+                continue
 
     except rospy.ROSInterruptException:
         SRL.close() #Close serial port
