@@ -8,11 +8,13 @@
     <param name="max_particles" value="5000"/>
     <param name="kld_err" value="0.1"/>
     <param name="kld_z" value="0.9"/>
-    <param name="odom_alpha1" value="1.2"/>
-    <param name="odom_alpha2" value="1.2"/>
+    <param name="mult_med_noise" value="2.0"/>
+    <param name="mult_big_noise" value="4.0"/>
+    <param name="odom_alpha1" value="1"/>
+    <param name="odom_alpha2" value="1"/>
     <!-- translation std dev, m -->
-    <param name="odom_alpha3" value="1"/>
-    <param name="odom_alpha4" value="1"/>
+    <param name="odom_alpha3" value=".8"/>
+    <param name="odom_alpha4" value=".8"/>
     <param name="gps_sigma" value="0.04" />
     <param name="update_min_d" value="0.05"/>
     <param name="update_min_a" value="0.1"/>

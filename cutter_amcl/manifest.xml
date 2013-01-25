@@ -16,6 +16,7 @@
   <depend package="std_srvs" />
   <depend package="dynamic_reconfigure" />
   <depend package="cutter_msgs" />
+  <depend package="gps_common" />
 
 </package>
 

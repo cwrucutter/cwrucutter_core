@@ -226,8 +226,18 @@ int main(int argc, char** argv)
     ROS_ERROR("Parameters not found");
 
   ros::Rate loop_rate(odometry.getLoopRate());
+  int count = 0;
   while (ros::ok())
   {
+    if (++count == 10)
+    {
+      count = 0;
+      if (!odometry.lookupParams())
+      {
+        ROS_ERROR("Parameters not found");
+        break;
+      }  
+    }
     ros::spinOnce();
     odometry.sendOdometry();
     loop_rate.sleep();

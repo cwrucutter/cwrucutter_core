@@ -10,7 +10,12 @@
    <!-- Startup the Christa IMU driver -->
    <include file="$(find cutter_bot_drivers)/start_christa.launch" />
 
+   <!-- Startup the LIDAR driver -->
+   <include file="$(find cutter_bot_drivers)/start_lidar.launch" />
+
    <!-- Startup the odometry node --> 
    <include file="$(find cutter_localization)/launch/odometry_encoders.launch" />
 
+   <!-- Startup the slip detection -->
+   <include file="$(find cutter_slip_detect)/start_simple_slip_detect.launch" />
 </launch>
