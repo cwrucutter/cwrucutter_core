@@ -49,7 +49,6 @@
 #include "nav_msgs/GetMap.h"
 #include "std_srvs/Empty.h"
 #include "cutter_msgs/Beacon.h"
-#include "gps_common/GPSStatus.h"
 
 // For transform support
 #include "tf/transform_broadcaster.h"
@@ -81,7 +80,6 @@ normalize(double z)
 {
   return atan2(sin(z),cos(z));
 }
-
 static double
 angle_diff(double a, double b)
 {
@@ -100,7 +98,6 @@ angle_diff(double a, double b)
 
 //static const std::string scan_topic_ = "scan";
 static const std::string gps_topic_ = "gps_pose";
-static const std::string gps_status_topic_ = "gps_status";
 static const std::string beacon_topic_ = "/cwru/beacon";
 
 class AmclNode
@@ -128,7 +125,6 @@ class AmclNode
     bool globalLocalizationCallback(std_srvs::Empty::Request& req,
                                     std_srvs::Empty::Response& res);
     void gpsReceived(const geometry_msgs::PoseStampedConstPtr& msg);
-    void gpsStatusReceived(const gps_common::GPSStatus& status);
     void beaconReceived(const cutter_msgs::BeaconConstPtr& msg);
     void initialPoseReceived(const geometry_msgs::PoseWithCovarianceStampedConstPtr& msg);
 
@@ -144,7 +140,6 @@ class AmclNode
     std::string global_frame_id_;
 
     bool use_gps_;
-    int gps_position_source_;
     bool use_beacon_;
 
     ros::Duration gui_publish_period;
@@ -156,7 +151,6 @@ class AmclNode
     cutter_msgs::Beacon last_beacon_range_;
 
     ros::Subscriber gps_sub_;
-    ros::Subscriber gps_status_sub_;
     ros::Subscriber beacon_sub_;
     ros::Subscriber initial_pose_sub_;
     bool pf_update_;
@@ -213,8 +207,6 @@ class AmclNode
     double init_cov_[3];
     gps_model_t gps_model_type_;
     beacon_model_t beacon_model_type_;
-    double mult_med_noise_;
-    double mult_big_noise_;
 
     ros::Time last_gps_received_ts_;
     ros::Time last_beacon_received_ts_;
@@ -254,7 +246,7 @@ AmclNode::AmclNode() :
         odom_(NULL),
         gps_(NULL),
         beacon_(NULL),
-	private_nh_("~"),
+	      private_nh_("~"),
         initial_pose_hyp_(NULL),
         first_reconfigure_call_(true)
 {
@@ -296,8 +288,6 @@ AmclNode::AmclNode() :
   private_nh_.param("use_gps", use_gps_, true);
   private_nh_.param("gps_sigma", sigma_gps_, 0.01);
   private_nh_.param("gps_model_type", tmp_model_type, std::string("leverarm"));
-  private_nh_.param("mult_med_noise", mult_med_noise_, 2.0);
-  private_nh_.param("mult_big_noise", mult_big_noise_, 4.0);
   if(tmp_model_type == "leverarm")
     gps_model_type_ = GPS_MODEL_LEVERARM;
   else
@@ -325,28 +315,6 @@ AmclNode::AmclNode() :
     beacon_model_type_ = BEACON_MODEL_RANGE_ONLY;
   }
  
-  // Laser parameters
-  /*
-  private_nh_.param("laser_z_hit", z_hit_, 0.95);
-  private_nh_.param("laser_z_short", z_short_, 0.1);
-  private_nh_.param("laser_z_max", z_max_, 0.05);
-  private_nh_.param("laser_z_rand", z_rand_, 0.05);
-  private_nh_.param("laser_sigma_hit", sigma_hit_, 0.2);
-  private_nh_.param("laser_lambda_short", lambda_short_, 0.1);
-  private_nh_.param("laser_likelihood_max_dist", laser_likelihood_max_dist_, 2.0);
-  std::string tmp_model_type;
-  private_nh_.param("laser_model_type", tmp_model_type, std::string("beam"));
-  if(tmp_model_type == "beam")
-    laser_model_type_ = LASER_MODEL_BEAM;
-  else if(tmp_model_type == "likelihood_field")
-    laser_model_type_ = LASER_MODEL_LIKELIHOOD_FIELD;
-  else
-  {
-    ROS_WARN("Unknown laser model type \"%s\"; defaulting to likelihood_field model",
-             tmp_model_type.c_str());
-    laser_model_type_ = LASER_MODEL_LIKELIHOOD_FIELD;
-  }
-*/ 
   // More particle filter parameters
   private_nh_.param("update_min_d", d_thresh_, 0.1);
   private_nh_.param("update_min_a", a_thresh_, M_PI/6.0);
@@ -468,10 +436,7 @@ AmclNode::AmclNode() :
   
   // Subscribers
   if (use_gps_)
-  {
     gps_sub_ = nh_.subscribe(gps_topic_,2,&AmclNode::gpsReceived, this);
-    gps_status_sub_ = nh_.subscribe(gps_status_topic_,2,&AmclNode::gpsStatusReceived, this);
-  }
   else
     ROS_WARN("Not Using GPS. Enable by setting the use_gps parameter true");
     
@@ -587,12 +552,6 @@ bool AmclNode::globalLocalizationCallback(std_srvs::Empty::Request& req,
   }
   ROS_INFO("Leaving globalLocalizationCallback\n");
   return true;
-}
-
-void AmclNode::gpsStatusReceived(const gps_common::GPSStatus& status)
-{
-  ROS_INFO("GPS Status: %i", status.position_source);
-  gps_position_source_ = status.position_source;
 }
 
 void AmclNode::gpsReceived(const geometry_msgs::PoseStampedConstPtr& gps)
@@ -741,7 +700,7 @@ void AmclNode::beaconReceived(const cutter_msgs::BeaconConstPtr& range)
   } 
 }
 
-//PROCESS
+
 int AmclNode::process()
 {
   boost::recursive_mutex::scoped_lock lr(configuration_mutex_);
@@ -827,6 +786,12 @@ int AmclNode::process()
   // 3. SENSOR UPDATE
   //    Modify the particle weight based on each sensor
   // Sensor 1: GPS
+  if (pf_update_)
+    printf("pf_update_ true\n");
+  if (gps_new)
+    printf("gps_new true\n");
+  if (use_gps_)
+    printf("use_gps_ true\n");
   if(pf_update_ && gps_new && use_gps_)  
   {
     printf("GPS Update\n");
@@ -836,20 +801,6 @@ int AmclNode::process()
     gdata.y = gps.pose.position.y;
 
     AMCLSensorData* tempdata = &gdata;
-    switch (gps_position_source_) //TODO: subscribe to gps status, grap status flag to local private var. in CB
-    {
-      case 34:
-        ROS_INFO("Narrow Float!");
-        gps_->SetModelLeverarm(sigma_gps_*mult_med_noise_);
-	    break;
-      case 17:
-        ROS_INFO("Acquiring!");
-        gps_->SetModelLeverarm(sigma_gps_*mult_big_noise_);
-	    break;
-      default:
-        gps_->SetModelLeverarm(sigma_gps_);
-	    break;
-    }
     gps_->UpdateSensor(pf_,tempdata); // Update weights based on the GPS
   }
   

@@ -27,7 +27,8 @@ rosbuild_add_library(amcl_sensors
                     src/sensors/amcl_sensor.cpp
                     src/sensors/amcl_odom.cpp
                     src/sensors/amcl_gps.cpp
-                    src/sensors/amcl_beacon.cpp)
+                    src/sensors/amcl_beacon.cpp
+                    src/sensors/amcl_laser.cpp)
 target_link_libraries(amcl_sensors amcl_map amcl_pf)
 
 #rosbuild_add_boost_directories()

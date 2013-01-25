@@ -1,7 +1,7 @@
 <launch>
   <!-- Start amcl localization (edit parameters in the attached launch file if necessary)-->
-  <!--include file="$(find cutter_amcl)/start_amcl.launch" /> -->
-  <include file="$(find cutter_amcl)/start_amcl_new.launch" />
+  <include file="$(find cutter_amcl)/start_amcl.launch" />
+  <!--include file="$(find cutter_amcl)/start_amcl_new.launch" /> -->
 
   <!-- Start amcl-to-state publisher -->
   <node pkg="cutter_localization" type="amcl_to_state" name="amcl_to_state" />

@@ -47,6 +47,7 @@
 #include "geometry_msgs/Pose.h"
 #include "nav_msgs/GetMap.h"
 #include "std_srvs/Empty.h"
+#include "gps_common/GPSStatus.h"
 
 // For transform support
 #include "tf/transform_broadcaster.h"
@@ -100,6 +101,7 @@ angle_diff(double a, double b)
 
 //static const std::string scan_topic_ = "scan";
 static const std::string gps_topic_ = "gps_pose";
+static const std::string gps_status_topic_ = "gps_status";
 
 class AmclNode
 {
@@ -129,6 +131,7 @@ class AmclNode
                                     std_srvs::Empty::Response& res);
 //    void laserReceived(const sensor_msgs::LaserScanConstPtr& laser_scan);
     void gpsReceived(const geometry_msgs::PoseStampedConstPtr& msg);
+    void gpsStatusReceived(const gps_common::GPSStatus& status);
     void initialPoseReceived(const geometry_msgs::PoseWithCovarianceStampedConstPtr& msg);
 //    void mapReceived(const nav_msgs::OccupancyGridConstPtr& msg);
 
@@ -202,6 +205,7 @@ class AmclNode
     ros::ServiceServer global_loc_srv_;
     ros::Subscriber initial_pose_sub_old_;
     ros::Subscriber map_sub_;
+    ros::Subscriber gps_status_sub_;
 
     amcl_hyp_t* initial_pose_hyp_;
     bool first_map_received_;
@@ -220,6 +224,9 @@ class AmclNode
     double init_pose_[3];
     double init_cov_[3];
     gps_model_t gps_model_type_;
+    double mult_med_noise_;
+    double mult_big_noise_;
+    int gps_position_source_;
 
     void reconfigureCB(cutter_amcl::amclConfig &config, uint32_t level);
 
@@ -289,6 +296,8 @@ AmclNode::AmclNode() :
   private_nh_.param("gps_sigma", sigma_gps_, 0.01);
   std::string tmp_model_type;
   private_nh_.param("gps_model_type", tmp_model_type, std::string("leverarm"));
+  private_nh_.param("mult_med_noise", mult_med_noise_, 2.0);
+  private_nh_.param("mult_big_noise", mult_big_noise_, 4.0);
   if(tmp_model_type == "leverarm")
     gps_model_type_ = GPS_MODEL_LEVERARM;
   else
@@ -325,8 +334,28 @@ AmclNode::AmclNode() :
   printf("%i \n", __LINE__);
 
   transform_tolerance_.fromSec(tmp_tol);
-  printf("%i \n", __LINE__);
+  
+  private_nh_.param("laser_z_hit", z_hit_, 0.95);
+  private_nh_.param("laser_z_short", z_short_, 0.1);
+  private_nh_.param("laser_z_max", z_max_, 0.05);
+  private_nh_.param("laser_z_rand", z_rand_, 0.05);
+  private_nh_.param("laser_sigma_hit", sigma_hit_, 0.2);
+  private_nh_.param("laser_lambda_short", lambda_short_, 0.1);
+  private_nh_.param("laser_likelihood_max_dist", laser_likelihood_max_dist_, 2.0);
+  std::string tmp_model_type;
+  private_nh_.param("laser_model_type", tmp_model_type, std::string("beam"));
+  if(tmp_model_type == "beam")
+    laser_model_type_ = LASER_MODEL_BEAM;
+  else if(tmp_model_type == "likelihood_field")
+    laser_model_type_ = LASER_MODEL_LIKELIHOOD_FIELD;
+  else
+  {
+    ROS_WARN("Unknown laser model type \"%s\"; defaulting to beam model",
+             tmp_model_type.c_str());
+    laser_model_type_ = LASER_MODEL_LIKELIHOOD_FIELD;
+  }
 
+  
   init_pose_[0] = 0.0;
   init_pose_[1] = 0.0;
   init_pose_[2] = 0.0;
@@ -438,6 +467,7 @@ AmclNode::AmclNode() :
   ROS_INFO("Configured GPS and Odom Sensors");
   
   gps_sub_ = nh_.subscribe(gps_topic_,2,&AmclNode::gpsReceived, this);
+  gps_status_sub_ = nh_.subscribe(gps_status_topic_,2,&AmclNode::gpsStatusReceived, this);
   initial_pose_sub_ = nh_.subscribe("initialpose", 2, &AmclNode::initialPoseReceived, this);
   
   printf("%i \n", __LINE__);
@@ -572,6 +602,7 @@ void AmclNode::reconfigureCB(cutter_amcl::amclConfig &config, uint32_t level)
                                             this, _1)); */
   
   gps_sub_ = nh_.subscribe(gps_topic_,2,&AmclNode::gpsReceived, this);
+  gps_status_sub_ = nh_.subscribe(gps_status_topic_,2,&AmclNode::gpsStatusReceived, this);
   initial_pose_sub_ = nh_.subscribe("initialpose", 2, &AmclNode::initialPoseReceived, this);
   printf("Leaving reconfigureCB\n");
 }
@@ -847,14 +878,40 @@ AmclNode::globalLocalizationCallback(std_srvs::Empty::Request& req,
   return true;
 }
 
+void AmclNode::gpsStatusReceived(const gps_common::GPSStatus& status)
+{
+  ROS_INFO("GPS Status: %i", status.position_source);
+  gps_position_source_ = status.position_source;
+}
+
 void
 AmclNode::gpsReceived(const geometry_msgs::PoseStampedConstPtr& gps)
 {
   double startTime = ros::Time::now().toSec();
   
+  // INSERTED FROM HERE... 
+  geometry_msgs::PoseStamped gps_tf;
+  try
+  {
+    this->tf_->transformPose(global_frame_id_, ros::Time(gps->header.stamp)-ros::Duration(0.2),
+                         (*gps), gps->header.frame_id, gps_tf);
+    ROS_INFO("GPS Map: %f, %f    GPS Snowmap: %f, %f", gps->pose.position.x, gps->pose.position.y,
+                                                       gps_tf.pose.position.x, gps_tf.pose.position.y);
+  }
+  catch(tf::TransformException& e)
+  {
+      ROS_ERROR("Couldn't transform GPS from %s to %s. Skipping GPS message ",
+                gps->header.frame_id.c_str(),
+                global_frame_id_.c_str());
+      printf("Leaving gpsReceived\n");
+      return;
+  }
+  // .... TO HERE
+  
   printf("Entering gpsReceived\n");
   last_gps_received_ts_ = ros::Time::now();
-  last_gps_pose_ = *gps;
+  //last_gps_pose_ = *gps;
+  last_gps_pose_ = gps_tf;
   
   /*if( map_ == NULL ) {
     printf("Map == null, Leaving gpsReceived\n");
@@ -864,10 +921,10 @@ AmclNode::gpsReceived(const geometry_msgs::PoseStampedConstPtr& gps)
   int gps_index = -1;
 
   // Do we have the base->base_laser Tx yet?
-  if(frame_to_gps_.find(gps->header.frame_id) == frame_to_gps_.end())
+  if(frame_to_gps_.find(last_gps_pose_.header.frame_id) == frame_to_gps_.end())
   {
     printf("If 1\n");
-    ROS_INFO("Setting up gps %d (frame_id=%s)\n", (int)frame_to_gps_.size(), gps->header.frame_id.c_str());
+    ROS_INFO("Setting up gps %d (frame_id=%s)\n", (int)frame_to_gps_.size(), last_gps_pose_.header.frame_id.c_str());
     gps_update_ = true;
 
     tf::Stamped<tf::Pose> ident (tf::Transform(tf::createIdentityQuaternion(),
@@ -902,18 +959,22 @@ AmclNode::gpsReceived(const geometry_msgs::PoseStampedConstPtr& gps)
               gps_pose_v.v[2]);
 
     // Index each GPS by its frame_id (ie, /base_gps_1, /base_gps_2)
-    frame_to_gps_[gps->header.frame_id] = gps_index;
+    frame_to_gps_[last_gps_pose_.header.frame_id] = gps_index;
+    
+    std_srvs::Empty::Request req;
+    std_srvs::Empty::Response res;
+    globalLocalizationCallback(req, res);
     
   } else {
     // we have the gps pose, retrieve laser index
-    gps_index = frame_to_gps_[gps->header.frame_id];
+    gps_index = frame_to_gps_[last_gps_pose_.header.frame_id];
   }
 
   // Where was the robot when this gps measurement was taken?
   tf::Stamped<tf::Pose> odom_pose;
   pf_vector_t pose;
   if(!getOdomPose(odom_pose, pose.v[0], pose.v[1], pose.v[2],
-                  gps->header.stamp, base_frame_id_))
+                  last_gps_pose_.header.stamp, base_frame_id_))
   {
     ROS_ERROR("Couldn't determine robot's pose associated with gps measurement");
     printf("Leaving gpsReceived\n");
@@ -999,11 +1060,25 @@ AmclNode::gpsReceived(const geometry_msgs::PoseStampedConstPtr& gps)
   {
     AMCLGpsData gdata;;
     gdata.sensor = gps_; //gps_vec_[gps_index];
-    gdata.x = gps->pose.position.x;
-    gdata.y = gps->pose.position.y;
+    gdata.x = last_gps_pose_.pose.position.x;
+    gdata.y = last_gps_pose_.pose.position.y;
 
     //gps_vec_[gps_index]->UpdateSensor(pf_, (AMCLSensorData*)&gdata);
     AMCLSensorData* tempdata = &gdata;
+    switch (gps_position_source_) //TODO: subscribe to gps status, grap status flag to local private var. in CB
+    {
+      case 34:
+        ROS_INFO("Narrow Float!");
+        gps_->SetModelLeverarm(sigma_gps_*mult_med_noise_);
+	    break;
+      case 17:
+        ROS_INFO("Acquiring!");
+        gps_->SetModelLeverarm(sigma_gps_*mult_big_noise_);
+	    break;
+      default:
+        gps_->SetModelLeverarm(sigma_gps_);
+	    break;
+    }
     gps_->UpdateSensor(pf_,tempdata);
 
     //gps_update_[gps_index] = false;
@@ -1088,7 +1163,7 @@ AmclNode::gpsReceived(const geometry_msgs::PoseStampedConstPtr& gps)
       geometry_msgs::PoseWithCovarianceStamped p;
       // Fill in the header
       p.header.frame_id = global_frame_id_;
-      p.header.stamp = gps->header.stamp;
+      p.header.stamp = last_gps_pose_.header.stamp;
       // Copy in the pose
       p.pose.pose.position.x = hyps[max_weight_hyp].pf_pose_mean.v[0];
       p.pose.pose.position.y = hyps[max_weight_hyp].pf_pose_mean.v[1];
@@ -1138,7 +1213,7 @@ AmclNode::gpsReceived(const geometry_msgs::PoseStampedConstPtr& gps)
                                          hyps[max_weight_hyp].pf_pose_mean.v[1],
                                          0.0));
         tf::Stamped<tf::Pose> tmp_tf_stamped (tmp_tf.inverse(),
-                                              gps->header.stamp,
+                                              last_gps_pose_.header.stamp,
                                               base_frame_id_);
         this->tf_->transformPose(odom_frame_id_,
                                  tmp_tf_stamped,
@@ -1157,7 +1232,7 @@ AmclNode::gpsReceived(const geometry_msgs::PoseStampedConstPtr& gps)
 
       // We want to send a transform that is good up until a
       // tolerance time so that odom can be used
-      ros::Time transform_expiration = (gps->header.stamp +
+      ros::Time transform_expiration = (last_gps_pose_.header.stamp +
                                         transform_tolerance_);
       tf::StampedTransform tmp_tf_stamped(latest_tf_.inverse(),
                                           transform_expiration,
@@ -1175,7 +1250,7 @@ AmclNode::gpsReceived(const geometry_msgs::PoseStampedConstPtr& gps)
     printf("If 5else\n");
     // Nothing changed, so we'll just republish the last transform, to keep
     // everybody happy.
-    ros::Time transform_expiration = (gps->header.stamp +
+    ros::Time transform_expiration = (last_gps_pose_.header.stamp +
                                       transform_tolerance_);
     tf::StampedTransform tmp_tf_stamped(latest_tf_.inverse(),
                                         transform_expiration,
