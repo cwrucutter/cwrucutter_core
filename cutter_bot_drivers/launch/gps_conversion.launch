@@ -1,8 +1,8 @@
 <launch>
   <!-- Set the GPS Reference Point -->
-  <param name="ref_lat" value="44.9441809609" type="double"/>
-  <param name="ref_lon" value="-93.097024715" type="double"/>
-  <param name="ref_alt" value="236" type="double"/>
+  <param name="ref_lat" value="44.94420355273" type="double"/>
+  <param name="ref_lon" value="-93.09702598741" type="double"/>
+  <param name="ref_alt" value="242" type="double"/>
 
   <!-- Launch the Novatel GPS converter node from Lat/Lon/Velocity to Pose -->
   <node pkg="cutter_bot_drivers" type="gps_conversion" name="conversion_gps">
