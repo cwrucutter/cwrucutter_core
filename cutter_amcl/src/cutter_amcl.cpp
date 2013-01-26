@@ -1066,6 +1066,7 @@ AmclNode::gpsReceived(const geometry_msgs::PoseStampedConstPtr& gps)
 
     //gps_vec_[gps_index]->UpdateSensor(pf_, (AMCLSensorData*)&gdata);
     AMCLSensorData* tempdata = &gdata;
+    bool gps_locked = true;
     switch (gps_position_source_) //TODO: subscribe to gps status, grap status flag to local private var. in CB
     {
       case 34:
@@ -1076,12 +1077,19 @@ AmclNode::gpsReceived(const geometry_msgs::PoseStampedConstPtr& gps)
         ROS_INFO("Acquiring!");
         gps_->SetModelLeverarm(sigma_gps_*mult_big_noise_);
 	    break;
-      default:
+      case 50:
         gps_->SetModelLeverarm(sigma_gps_);
+      default:
+        gps_->SetModelLeverarm(sigma_gps_*100);
+        gps_locked = false;
+        ROS_ERROR("GPS Status (%i) not recognized. Not using GPS", gps_position_source_);
 	    break;
     }
-    gps_->UpdateSensor(pf_,tempdata);
-
+    if (gps_locked)
+    {
+      gps_->UpdateSensor(pf_,tempdata);
+    }
+    
     //gps_update_[gps_index] = false;
     gps_update_ = false;
 
