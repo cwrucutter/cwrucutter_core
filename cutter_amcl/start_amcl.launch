@@ -1,6 +1,7 @@
 <launch>
   <node pkg="cutter_amcl" type="cutter_amcl" name="amcl" output="screen">
     <!-- Publish scans from best pose at a max of 10 Hz -->
+    <param name="global_frame_id" value="snowmap"/>
     <param name="odom_model_type" value="diff"/>
     <param name="odom_alpha5" value="0.4"/>
     <param name="gui_publish_rate" value="10.0"/>
@@ -10,18 +11,18 @@
     <param name="kld_z" value="0.9"/>
     <param name="mult_med_noise" value="2.0"/>
     <param name="mult_big_noise" value="4.0"/>
-    <param name="odom_alpha1" value="1"/>
-    <param name="odom_alpha2" value="1"/>
+    <param name="odom_alpha1" value="3"/>
+    <param name="odom_alpha2" value="3"/>
     <!-- translation std dev, m -->
-    <param name="odom_alpha3" value=".8"/>
-    <param name="odom_alpha4" value=".8"/>
-    <param name="gps_sigma" value="0.04" />
+    <param name="odom_alpha3" value="3"/>
+    <param name="odom_alpha4" value="3"/>
+    <param name="gps_sigma" value="0.05" />
     <param name="update_min_d" value="0.05"/>
     <param name="update_min_a" value="0.1"/>
     <param name="odom_frame_id" value="odom"/>
     <param name="resample_interval" value="2"/>
     <param name="transform_tolerance" value="0.1"/>
-    <param name="recovery_alpha_slow" value="0.002"/>
+    <param name="recovery_alpha_slow" value="0.004"/>
     <param name="recovery_alpha_fast" value="0.1"/>
   </node>
 </launch>

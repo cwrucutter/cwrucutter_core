@@ -31,6 +31,7 @@
  * 
  * Subscribes:
  *   - cwru/enc_count (cutter_msgs/EncMsg): Current encoder count from crio
+ *   - imu/data (
  *  
  * Publishes:
  *   - odom (nav_msgs/Odometry): Best guess in odometry frame
@@ -50,6 +51,7 @@
 #include "angles/angles.h"
 #include <tf/tf.h>
 #include <tf/transform_broadcaster.h>
+#include "sensor_msgs/Imu.h"
 
 #define LOOP_RATE 25 //Hz
 
@@ -62,13 +64,17 @@ class CutterOdometry
     double getLoopRate() {return loop_rate_;}
   
   private:
-    void encCountCallback(const cutter_msgs::EncMsg::ConstPtr& enc);    
+    void encCountCallback(const cutter_msgs::EncMsg::ConstPtr& enc);  
+    void imuCallback(const sensor_msgs::Imu::ConstPtr& enc);    
    
     ros::NodeHandle node_;
     
     ros::Publisher  odom_pub_;
     ros::Subscriber enc_sub_;
+    ros::Subscriber imu_sub_;
     tf::TransformBroadcaster odom_broadcaster_;
+    
+    geometry_msgs::Vector3 imu_angular_rate_;
     
     double x_;
     double y_;
@@ -87,10 +93,11 @@ class CutterOdometry
     int ticks_per_m_right_;
 
     bool first_call_;
+    bool imu_enabled_;
 };
 
 CutterOdometry::CutterOdometry():
-  track_(0.67), ticks_per_m_left_(20000), ticks_per_m_right_(20000), loop_rate_(25)
+  track_(0.67), ticks_per_m_left_(20000), ticks_per_m_right_(20000), loop_rate_(25), imu_enabled_(false)
 {
   first_call_ = 1;
 
@@ -105,6 +112,7 @@ CutterOdometry::CutterOdometry():
 
   odom_pub_ = node_.advertise<nav_msgs::Odometry>("odom",1);
   enc_sub_  = node_.subscribe<cutter_msgs::EncMsg>("cwru/enc_count",1,&CutterOdometry::encCountCallback,this);
+  imu_sub_  = node_.subscribe<sensor_msgs::Imu>("imu/data",1,&CutterOdometry::imuCallback,this);
 }
 
 bool CutterOdometry::sendOdometry()
@@ -113,11 +121,12 @@ bool CutterOdometry::sendOdometry()
   
   double start = ros::Time::now().toSec();
 
-  double Dr, Dl, Vr, Vl;
+  double Dr, Dl, Vr, Vl, w;
   Dr = double(enc_right_ - enc_right_old_) / ticks_per_m_right_;
   Dl = double(enc_left_  - enc_left_old_ ) / ticks_per_m_left_;
   Vr = Dr / dt_;
   Vl = Dl / dt_;
+  w = 0;
 
   double diff = Vr - Vl;
   double sum  = Vr + Vl;
@@ -136,9 +145,15 @@ bool CutterOdometry::sendOdometry()
   else
   {
     // New x,y,theta
-    xnew = x_ + track_ * sum/(2*diff) * (sin(diff*dt_/track_+tht_) - sin(tht_));
-    ynew = y_ - track_ * sum/(2*diff) * (cos(diff*dt_/track_+tht_) - cos(tht_));
-    thtn = angles::normalize_angle(tht_ + diff/track_*dt_);
+    if (imu_enabled_)
+      w = .1*diff/track_ + .9*imu_angular_rate_.z;
+    else
+      w = diff/track_;
+    //xnew = x_ + track_ * sum/(2*diff) * (sin(diff*dt_/track_+tht_) - sin(tht_));
+    //ynew = y_ - track_ * sum/(2*diff) * (cos(diff*dt_/track_+tht_) - cos(tht_));
+    xnew = x_ + sum/(2*w) * (sin(w*dt_+tht_) - sin(tht_));
+    ynew = y_ - sum/(2*w) * (cos(w*dt_+tht_) - cos(tht_));
+    thtn = angles::normalize_angle(tht_ + w*dt_);
   }  
 
   double end = ros::Time::now().toSec();
@@ -183,7 +198,7 @@ bool CutterOdometry::sendOdometry()
   odom.pose.pose.position.y  = y_;
   odom.pose.pose.orientation = odom_quat;
   odom.twist.twist.linear.x  = sum/2;
-  odom.twist.twist.angular.z = diff/track_;
+  odom.twist.twist.angular.z = w;
   odom_pub_.publish(odom);
 
   return true;
@@ -194,7 +209,8 @@ bool CutterOdometry::lookupParams()
   bool rval = ros::param::get("~track", track_)
            && ros::param::get("~tpm_left",ticks_per_m_left_)
            && ros::param::get("~tpm_right",ticks_per_m_right_)
-           && ros::param::get("~loop_rate",loop_rate_);
+           && ros::param::get("~loop_rate",loop_rate_)
+           && ros::param::get("~use_imu",imu_enabled_);
   if (rval)
   {
     dt_ = 1/loop_rate_;
@@ -216,6 +232,13 @@ void CutterOdometry::encCountCallback(const cutter_msgs::EncMsg::ConstPtr& enc)
   return;
 }
 
+void CutterOdometry::imuCallback(const sensor_msgs::Imu::ConstPtr& imu)
+{
+  imu_angular_rate_ = imu->angular_velocity;
+  ROS_INFO("Received imu values. Yaw Rate: %f", imu_angular_rate_.z);
+  return;
+}
+
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "odometry");
@@ -226,18 +249,8 @@ int main(int argc, char** argv)
     ROS_ERROR("Parameters not found");
 
   ros::Rate loop_rate(odometry.getLoopRate());
-  int count = 0;
   while (ros::ok())
   {
-    if (++count == 10)
-    {
-      count = 0;
-      if (!odometry.lookupParams())
-      {
-        ROS_ERROR("Parameters not found");
-        break;
-      }  
-    }
     ros::spinOnce();
     odometry.sendOdometry();
     loop_rate.sleep();

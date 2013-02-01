@@ -832,8 +832,8 @@ AmclNode::uniformPoseGenerator(void* arg)
   geometry_msgs::PoseStamped* gps = (geometry_msgs::PoseStamped*)arg;
   
   double min_range, max_range, r, tht;
-  min_range = 0.3;
-  max_range = 0.6;
+  min_range = 0.0;
+  max_range = 0.3;
   
   pf_vector_t p;
   r = drand48() * (max_range-min_range) + min_range;
@@ -1070,25 +1070,29 @@ AmclNode::gpsReceived(const geometry_msgs::PoseStampedConstPtr& gps)
     switch (gps_position_source_) //TODO: subscribe to gps status, grap status flag to local private var. in CB
     {
       case 34:
-        ROS_INFO("Narrow Float!");
+      case 18:
+        ROS_INFO("Narrow Float or WAAS!");
         gps_->SetModelLeverarm(sigma_gps_*mult_med_noise_);
 	    break;
       case 17:
-        ROS_INFO("Acquiring!");
+      case 16:
+        ROS_INFO("Acquiring or Single Pt Solution!");
         gps_->SetModelLeverarm(sigma_gps_*mult_big_noise_);
 	    break;
       case 50:
+        ROS_INFO("Narrow Int!");
         gps_->SetModelLeverarm(sigma_gps_);
+      break;
       default:
         gps_->SetModelLeverarm(sigma_gps_*100);
         gps_locked = false;
         ROS_ERROR("GPS Status (%i) not recognized. Not using GPS", gps_position_source_);
 	    break;
     }
-    if (gps_locked)
-    {
+    //if (gps_locked)
+    //{
       gps_->UpdateSensor(pf_,tempdata);
-    }
+    //}
     
     //gps_update_[gps_index] = false;
     gps_update_ = false;

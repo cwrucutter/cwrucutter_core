@@ -1,9 +1,10 @@
 <launch>
-  <node pkg="cutter_localization" type="odometry" name="odometry" respawn="true">
+  <node pkg="cutter_localization" type="odometry" name="odometry" respawn="true" >
     <param name="track" type="double" value=".55"/>
     <param name="tpm_left"  type="int" value="27150"/>
     <param name="tpm_right" type="int" value="26500"/>
     <param name="loop_rate" type="double" value="25.0"/>
+    <param name="use_imu" type="bool" value="True"/>
   </node>
 
 </launch>
