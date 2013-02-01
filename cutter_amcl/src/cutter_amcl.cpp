@@ -296,8 +296,8 @@ AmclNode::AmclNode() :
   private_nh_.param("gps_sigma", sigma_gps_, 0.01);
   std::string tmp_model_type;
   private_nh_.param("gps_model_type", tmp_model_type, std::string("leverarm"));
-  private_nh_.param("mult_med_noise", mult_med_noise_, 2.0);
-  private_nh_.param("mult_big_noise", mult_big_noise_, 4.0);
+  private_nh_.param("mult_med_noise", mult_med_noise_, 3.0);
+  private_nh_.param("mult_big_noise", mult_big_noise_, 5.0);
   if(tmp_model_type == "leverarm")
     gps_model_type_ = GPS_MODEL_LEVERARM;
   else
@@ -334,27 +334,6 @@ AmclNode::AmclNode() :
   printf("%i \n", __LINE__);
 
   transform_tolerance_.fromSec(tmp_tol);
-  
-  private_nh_.param("laser_z_hit", z_hit_, 0.95);
-  private_nh_.param("laser_z_short", z_short_, 0.1);
-  private_nh_.param("laser_z_max", z_max_, 0.05);
-  private_nh_.param("laser_z_rand", z_rand_, 0.05);
-  private_nh_.param("laser_sigma_hit", sigma_hit_, 0.2);
-  private_nh_.param("laser_lambda_short", lambda_short_, 0.1);
-  private_nh_.param("laser_likelihood_max_dist", laser_likelihood_max_dist_, 2.0);
-  std::string tmp_model_type;
-  private_nh_.param("laser_model_type", tmp_model_type, std::string("beam"));
-  if(tmp_model_type == "beam")
-    laser_model_type_ = LASER_MODEL_BEAM;
-  else if(tmp_model_type == "likelihood_field")
-    laser_model_type_ = LASER_MODEL_LIKELIHOOD_FIELD;
-  else
-  {
-    ROS_WARN("Unknown laser model type \"%s\"; defaulting to beam model",
-             tmp_model_type.c_str());
-    laser_model_type_ = LASER_MODEL_LIKELIHOOD_FIELD;
-  }
-
   
   init_pose_[0] = 0.0;
   init_pose_[1] = 0.0;
@@ -831,8 +810,8 @@ AmclNode::uniformPoseGenerator(void* arg)
   geometry_msgs::PoseStamped* gps = (geometry_msgs::PoseStamped*)arg;
   
   double min_range, max_range, r, tht;
-  min_range = 0.3;
-  max_range = 0.6;
+  min_range = 0.0;
+  max_range = 0.3;
   
   pf_vector_t p;
   r = drand48() * (max_range-min_range) + min_range;
@@ -1065,22 +1044,34 @@ AmclNode::gpsReceived(const geometry_msgs::PoseStampedConstPtr& gps)
 
     //gps_vec_[gps_index]->UpdateSensor(pf_, (AMCLSensorData*)&gdata);
     AMCLSensorData* tempdata = &gdata;
+    bool gps_locked = true;
     switch (gps_position_source_) //TODO: subscribe to gps status, grap status flag to local private var. in CB
     {
       case 34:
-        ROS_INFO("Narrow Float!");
+      case 18:
+        ROS_INFO("Narrow Float or WAAS!");
         gps_->SetModelLeverarm(sigma_gps_*mult_med_noise_);
 	    break;
       case 17:
-        ROS_INFO("Acquiring!");
+      case 16:
+        ROS_INFO("Acquiring or Single Pt Solution!");
         gps_->SetModelLeverarm(sigma_gps_*mult_big_noise_);
 	    break;
-      default:
+      case 50:
+        ROS_INFO("Narrow Int!");
         gps_->SetModelLeverarm(sigma_gps_);
+      break;
+      default:
+        gps_->SetModelLeverarm(sigma_gps_*100);
+        gps_locked = false;
+        ROS_ERROR("GPS Status (%i) not recognized. Not using GPS", gps_position_source_);
 	    break;
     }
-    gps_->UpdateSensor(pf_,tempdata);
-
+    //if (gps_locked)
+    //{
+      gps_->UpdateSensor(pf_,tempdata);
+    //}
+    
     //gps_update_[gps_index] = false;
     gps_update_ = false;
 
