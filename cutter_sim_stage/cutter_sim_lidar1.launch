@@ -1,0 +1,10 @@
+<launch>
+    <!-- Use the simulation time -->
+    <param name="/use_sim_time" value="true" />
+
+    <!-- Start the Stage simulator -->
+    <node pkg="stage" type="stageros" name="stageros" args="$(find cutter_sim_stage)/worlds/cutter_lidar_1.world" respawn="false" />
+
+    <!-- Simulate the GPS message -->
+    <include file="$(find cutter_sim_stage)/launch/sim_gps.launch"/>
+</launch>
