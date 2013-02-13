@@ -23,7 +23,7 @@ define cutter position
   origin [-0.4 0 0 0]
   gui_nose 1
   drive "diff"
-  sick_lms291(pose [0.9 0 0 0.1])
+  sick_lms291(pose [-0.88 0 0.2 180])
   #Next two lines make the stage simulation return the true global position
   #TODO: Remove in the future when we have other sensors simulated...
   #      But for now, we can use assume true localization in order to get 
@@ -70,8 +70,9 @@ floorplan
   name "fence2"
   bitmap "fence2.png"
   size [4 15 1]
-  pose [2.0 7.5 0.0 0.5 ]
+  pose [2.0 6.5 0.0 0.5 ]
   laser_return 0
+  obstacle_return 0
 )
 
 define snowfield model
@@ -116,19 +117,20 @@ define chalkline model
   laser_return 0
   obstacle_return 0
 )
-chalkline
-( 
-  name "garage2"
-  bitmap "garage2.png"
-  size [4 6 0.1]
-  pose [2.0 -1.0 0.0 0.0 ]
-)
+#chalkline
+#( 
+#  name "garage2"
+#  bitmap "garage2.png"
+#  size [4 6 0.1]
+#  pose [2.0 -1.0 0.0 0.0 ]
+#)
 
 # throw in a robot
 cutter( pose [ 3 1.55 0 0 ] name "cutter" color "blue")
-block( pose [ 0 -3 0 0 ] color "red")
-block( pose [ 4 -3 0 0 ] color "black")
+block( pose [ 0 -1 0 0 ] color "red")
+block( pose [ 4 -1 0 0 ] color "black")
 block( pose [ 0 3 0 0 ] color "white")
 block( pose [ 4 4 0 0 ] color "purple")
-block( pose [ 0 10 0 0 ] color "pink")
-block( pose [ 4 9 0 0 ] color "blue")
+block( pose [ 0 9 0 0 ] color "pink")
+block( pose [ 4 11 0 0 ] color "blue")
+block( pose [ 2 14 0 0 ] color "blue")
