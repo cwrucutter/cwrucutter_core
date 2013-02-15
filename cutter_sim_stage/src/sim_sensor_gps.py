@@ -38,73 +38,88 @@ import rospy
 from geometry_msgs.msg import PoseWithCovarianceStamped
 from geometry_msgs.msg import PoseStamped
 from geometry_msgs.msg import Quaternion
+from gps_common.msg import GPSStatus
 from nav_msgs.msg import Odometry
 from tf.transformations import euler_from_quaternion
 from tf.transformations import quaternion_from_euler
 from tf.transformations import rotation_matrix
 
 import math, numpy, random
-       
-def callback(data,pub):
-    # rospy.loginfo('callback called')
-    # gps_msg = PoseWithCovarianceStamped()
-    gps_msg = PoseStamped()
-    
-    # Set parameters
-    # TODO: get the parameters from the gps transform
-    xoff = -0.45
-    yoff = 0.0
-    std = .03
-    rot = math.pi/2
 
-    # Rotate the base pose
-    origin, zaxis = (0, 0, 0), (0, 0, 1) 
-    Rz = rotation_matrix(rot, zaxis, origin)
-    pt = numpy.matrix((data.pose.pose.position.x, data.pose.pose.position.y, data.pose.pose.position.z, 0),dtype=numpy.float64).T
-    xy = Rz*pt
-    
-    # Add the angle rotation
-    oldAng = data.pose.pose.orientation
-    ang = euler_from_quaternion([ oldAng.x, oldAng.y, oldAng.z, oldAng.w ])
-    ang = ang[0], ang[1], ang[2] + rot
-    
-    # Offset the GPS reading by the lever arm offset
-    x = xy[0] + xoff*math.cos(ang[2]) - yoff*math.sin(ang[2])
-    y = xy[1] + xoff*math.sin(ang[2]) + yoff*math.cos(ang[2])
-    #x = xy[0] + xoff*math.cos(ang[2])
-    #y = xy[1] + yoff*math.sin(ang[2])
-    gps_x = x + random.gauss(0,std)
-    gps_y = y + random.gauss(0,std)
-    print "testing"
-    print xy
-    print x,y
-    print gps_x, gps_y    
+class SimSensorGPS:
+    def __init__(self):
+        rospy.init_node('sensor_sim_gps')
+        self.pub = rospy.Publisher("/gps_pose",PoseStamped)
+        self.pubStat = rospy.Publisher("/gps_status",GPSStatus)
+        
+        # declare messages
+        self.gps_msg = PoseStamped()
+        self.gps_stat = GPSStatus()
+        # Mimic GPS status message
+        self.gps_stat.satellites_used = 7
+        self.gps_stat.satellites_visible = 9
+        self.gps_stat.position_source = 50
+        
+        #setup subscriber
+        rospy.Subscriber("base_pose_ground_truth", Odometry, self.callback)
+        
+        #spin
+        rospy.spin()
+        
+        
+    def callback(self, data):
+        # rospy.loginfo('callback called')
+        
+        # Set parameters
+        # TODO: get the parameters from the gps transform!!!
+        xoff = -0.45
+        yoff = 0.0
+        std = .03
+        rot = math.pi/2
 
-    # Populate the angle
-    # Note... GPS doesnt really return a heading!! So we cant use to localize... rememmmmberrrrr
-    # gps_msg.pose.pose.orientation = Quaternion(*quaternion_from_euler(*ang))
-    gps_msg.pose.orientation = Quaternion(*quaternion_from_euler(*ang))
-    
-    # Populate x,y
-    gps_msg.header.stamp = data.header.stamp
-    gps_msg.header.frame_id = "map"
-    #gps_msg.pose.pose.position.x = gps_x
-    #gps_msg.pose.pose.position.y = gps_y
-    gps_msg.pose.position.x = gps_x
-    gps_msg.pose.position.y = gps_y
+        # Rotate the base pose
+        origin, zaxis = (0, 0, 0), (0, 0, 1) 
+        Rz = rotation_matrix(rot, zaxis, origin)
+        pt = numpy.matrix((data.pose.pose.position.x, data.pose.pose.position.y, data.pose.pose.position.z, 0),dtype=numpy.float64).T
+        xy = Rz*pt
+        
+        # Add the angle rotation
+        oldAng = data.pose.pose.orientation
+        ang = euler_from_quaternion([ oldAng.x, oldAng.y, oldAng.z, oldAng.w ])
+        ang = ang[0], ang[1], ang[2] + rot
+        
+        # Offset the GPS reading by the lever arm offset
+        x = xy[0] + xoff*math.cos(ang[2]) - yoff*math.sin(ang[2])
+        y = xy[1] + xoff*math.sin(ang[2]) + yoff*math.cos(ang[2])
+        #x = xy[0] + xoff*math.cos(ang[2])
+        #y = xy[1] + yoff*math.sin(ang[2])
+        gps_x = x + random.gauss(0,std)
+        gps_y = y + random.gauss(0,std)
+        print "testing"
+        print xy
+        print x,y
+        print gps_x, gps_y    
 
-    # Publish
-    pub.publish(gps_msg)
+        # Populate the angle
+        # Note... GPS doesnt really return a heading!! So we cant use to localize... rememmmmberrrrr
+        # gps_msg.pose.pose.orientation = Quaternion(*quaternion_from_euler(*ang))
+        self.gps_msg.pose.orientation = Quaternion(*quaternion_from_euler(*ang))
+        
+        # Populate x,y
+        self.gps_msg.header.stamp = data.header.stamp
+        self.gps_msg.header.frame_id = "map_gps"
+        #self.gps_msg.pose.pose.position.x = gps_x
+        #self.gps_msg.pose.pose.position.y = gps_y
+        self.gps_msg.pose.position.x = gps_x
+        self.gps_msg.pose.position.y = gps_y
 
-def sensor_sim_gps():
-    rospy.init_node('sensor_sim_gps')
+        # Publish
+        self.pub.publish(self.gps_msg)
+        self.pubStat.publish(self.gps_stat)
 
-    pub = rospy.Publisher("/gps_pose",PoseStamped)
-    rospy.Subscriber("base_pose_ground_truth", Odometry, callback, pub)
-    rospy.spin()
 
 if __name__ == "__main__":
     try:
-        sensor_sim_gps()
+        SimSensorGPS()
     except rospy.ROSInterruptException: pass
 

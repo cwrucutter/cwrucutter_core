@@ -74,8 +74,10 @@ class SnowmapTransformer:
                 br.sendTransform(self.translate,
                                  self.rotate,
                                  rospy.Time.now(),
-                                 "snowmap",
-                                 "map")
+                                 "map",
+                                 "map_gps")
+                                 #"localmap",
+                                 #"map")
                 rate.sleep()
         else:
             rospy.logerr('Transform was not successful. Leaving Node')
@@ -151,8 +153,10 @@ class SnowmapTransformer:
             yOff = float(sum(yvals)/len(yvals)) if len(yvals) > 0 else float('nan')
             
             # 3. Save the Transformation Values!!
-            self.translate = (xOff, yOff, 0.0)
-            self.rotate = tf.transformations.quaternion_from_euler(0, 0, thtOff)
+            #self.translate = (xOff, yOff, 0.0)
+            #self.rotate = tf.transformations.quaternion_from_euler(0, 0, thtOff)
+            self.translate = (-xOff, -yOff, 0.0)
+            self.rotate = tf.transformations.quaternion_from_euler(0, 0, -thtOff)
             
             # 4. Print a bunch of stuff
             print "\n - Possible Angles:"

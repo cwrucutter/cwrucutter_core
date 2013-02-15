@@ -5,6 +5,9 @@
     <!-- Start the Stage simulator -->
     <node pkg="stage" type="stageros" name="stageros" args="$(find cutter_sim_stage)/worlds/cutter_lidar_1.world" respawn="false" />
 
+    <!-- Start the map server -->
+    <node pkg="cutter_amcl" type="landmark_map_service.py" name = "mapsrv"/>
+
     <!-- Simulate the GPS message -->
     <include file="$(find cutter_sim_stage)/launch/sim_gps.launch"/>
 </launch>

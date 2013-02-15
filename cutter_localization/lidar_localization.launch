@@ -1,0 +1,10 @@
+<launch>
+  <!-- Start amcl localization (edit parameters in the attached launch file if necessary)-->
+  <include file="$(find cutter_amcl)/start_amcl_lidar.launch" />
+
+  <!-- Start amcl-to-state publisher -->
+  <node pkg="cutter_localization" type="amcl_to_state" name="amcl_to_state" />
+
+  <!-- Localization Evaluation node, restart if it dies -->
+  <node pkg="cutter_localization" type="localization_evaluation" name="localization_evaluation" respawn="true"/>
+</launch>

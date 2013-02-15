@@ -1,7 +1,7 @@
 <launch>
   <node pkg="cutter_amcl" type="cutter_amcl" name="amcl" output="screen">
     <!-- Publish scans from best pose at a max of 10 Hz -->
-    <param name="global_frame_id" value="snowmap"/>
+    <param name="global_frame_id" value="map"/>
     <param name="odom_model_type" value="diff"/>
     <param name="odom_alpha5" value="0.4"/>
     <param name="gui_publish_rate" value="10.0"/>

@@ -99,6 +99,21 @@ AMCLLaser::SetModelBeam(double z_hit,
 }
 
 void 
+AMCLLaser::SetModelLikelihoodFieldLandmark(double z_hit,
+                                   double z_rand,
+                                   double sigma_hit,
+                                   double max_occ_dist)
+{
+  this->model_type = LASER_MODEL_LIKELIHOOD_FIELD_LANDMARK;
+  this->z_hit = z_hit;
+  this->z_max = z_max;
+  this->z_rand = z_rand;
+  this->sigma_hit = sigma_hit;
+
+  map_update_cspace(this->map, max_occ_dist);
+}
+
+void 
 AMCLLaser::SetModelLikelihoodField(double z_hit,
                                    double z_rand,
                                    double sigma_hit,
@@ -292,6 +307,117 @@ double AMCLLaser::LikelihoodFieldModel(AMCLLaserData *data, pf_sample_set_t* set
     // Take account of the laser pose relative to the robot
     pose = pf_vector_coord_add(self->laser_pose, pose);
 
+    //p = 1.0;
+    p = 0.0;
+
+    // Pre-compute a couple of things
+    double z_hit_denom = 2 * self->sigma_hit * self->sigma_hit;
+    double z_rand_mult = 1.0/data->range_max;
+
+    step = (data->range_count - 1) / (self->max_beams - 1);
+    //printf("New Particle\n");
+    int valid = 0;
+    for (i = 0; i < data->range_count; i += step)
+    {
+      obs_range = data->ranges[i][0];
+      obs_bearing = data->ranges[i][1];
+
+      // This model ignores max range readings
+      if(obs_range >= data->range_max)
+        continue;
+
+      pz = 0.0;
+
+      // Compute the endpoint of the beam
+      hit.v[0] = pose.v[0] + obs_range * cos(pose.v[2] + obs_bearing);
+      hit.v[1] = pose.v[1] + obs_range * sin(pose.v[2] + obs_bearing);
+
+      // Convert to map grid coords.
+      int mi, mj;
+      mi = MAP_GXWX(self->map, hit.v[0]);
+      mj = MAP_GYWY(self->map, hit.v[1]);
+      
+      // Part 1: Get distance from the hit to closest obstacle.
+      // Off-map penalized as max distance
+      if(!MAP_VALID(self->map, mi, mj))
+        z = self->map->max_occ_dist;
+      else
+        z = self->map->cells[MAP_INDEX(self->map,mi,mj)].occ_dist;
+      /*// Gaussian model
+      // NOTE: this should have a normalization of 1/(sqrt(2pi)*sigma)
+      pz += self->z_hit * exp(-(z * z) / z_hit_denom);
+      // Part 2: random measurements
+      pz += self->z_rand * z_rand_mult;
+
+      // TODO: outlier rejection for short readings
+      assert(pz <= 1.0);
+      assert(pz >= 0.0);
+      //      p *= pz;
+      // here we have an ad-hoc weighting scheme for combining beam probs
+      // works well, though...
+      p += pz*pz*pz;*/
+      if (z < self->map->max_occ_dist)
+      {
+        valid++;
+        
+        // NOTE: this should have a normalization of 1/(sqrt(2pi)*sigma)
+        pz += self->z_hit * exp(-(z * z) / z_hit_denom);
+        // Part 2: random measurements
+        pz += self->z_rand * z_rand_mult;
+
+        // TODO: outlier rejection for short readings
+        assert(pz <= 1.0);
+        assert(pz >= 0.0);
+      }
+      // here we have an ad-hoc weighting scheme for combining beam probs
+      // works well, though...
+      //p *= pz;
+      p += pz*pz*pz;
+      if (z < self->map->max_occ_dist)
+      {
+        //printf("DistToObs: %f, Pz: %f, P: %f\n",z, pz, p);
+      }
+    }
+    if (valid > 0)
+    {
+      //printf("totalp: %f, valid: %i\n",p/float(valid), valid);
+      sample->weight *= p/float(valid);
+      total_weight += sample->weight;
+    }
+    else
+    {
+      // Handle the case where no scans are valid!
+    }
+  }
+
+  return(total_weight);
+}
+
+double AMCLLaser::LikelihoodFieldLandmarkModel(AMCLLaserData *data, pf_sample_set_t* set)
+{
+  AMCLLaser *self;
+  int i, j, step;
+  double z, pz;
+  double p;
+  double obs_range, obs_bearing;
+  double total_weight;
+  pf_sample_t *sample;
+  pf_vector_t pose;
+  pf_vector_t hit;
+
+  self = (AMCLLaser*) data->sensor;
+
+  total_weight = 0.0;
+
+  // Compute the sample weights
+  for (j = 0; j < set->sample_count; j++)
+  {
+    sample = set->samples + j;
+    pose = sample->pose;
+
+    // Take account of the laser pose relative to the robot
+    pose = pf_vector_coord_add(self->laser_pose, pose);
+
     p = 1.0;
 
     // Pre-compute a couple of things
@@ -332,7 +458,7 @@ double AMCLLaser::LikelihoodFieldModel(AMCLLaserData *data, pf_sample_set_t* set
       pz += self->z_rand * z_rand_mult;
 
       // TODO: outlier rejection for short readings
-
+      
       assert(pz <= 1.0);
       assert(pz >= 0.0);
       //      p *= pz;

@@ -10,7 +10,7 @@ define block model
 define sick_lms291 ranger
 (
   sensor(
-    range_max 80
+    range_max 800
     fov 180
     samples 181
   )

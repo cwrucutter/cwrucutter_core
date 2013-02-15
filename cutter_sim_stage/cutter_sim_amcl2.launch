@@ -7,4 +7,7 @@
 
     <!-- Simulate the GPS message -->
     <include file="$(find cutter_sim_stage)/launch/sim_gps.launch"/>
+
+    <!-- Publish the static transform from map to map_gps -->
+    <node pkg="tf" type="static_transform_publisher" name="gpsmap_tf" args="3 8 0 0 0 0 map map_gps 100"/>
 </launch>

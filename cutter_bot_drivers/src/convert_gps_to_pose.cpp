@@ -140,7 +140,7 @@ void CutterGPSConversion::publishState()
   // Pose message: Setup header
   geometry_msgs::PoseWithCovarianceStamped pose_msg;
   pose_msg.header.stamp = fix_.header.stamp; //TODO: Should I use the current time or use the time from the gps message??
-  pose_msg.header.frame_id = "map";
+  pose_msg.header.frame_id = "map_gps";
 
   // Pose message: Set the pose
   pose_msg.pose.pose.position = point;
@@ -157,7 +157,7 @@ void CutterGPSConversion::publishState()
   // Pose message: Setup header
   geometry_msgs::PoseStamped pose_msg;
   pose_msg.header.stamp = fix_.header.stamp; //TODO: Should I use the current time or use the time from the gps message??
-  pose_msg.header.frame_id = "map";
+  pose_msg.header.frame_id = "map_gps";
 
   // Pose message: Set the pose
   pose_msg.pose.position = point;

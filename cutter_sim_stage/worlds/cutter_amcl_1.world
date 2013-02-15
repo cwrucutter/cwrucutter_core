@@ -14,7 +14,7 @@ define sick_lms291 ranger
     samples 181
   )
   #generic model stuff
-  size [.1 .1 .1]
+  size [0.15 0.15 0.2]
 )
 
 define cutter position
@@ -23,7 +23,7 @@ define cutter position
   origin [-0.4 0 0 0]
   gui_nose 1
   drive "diff"
-  sick_lms291(pose [0.9 0.0 0 0.1])
+  sick_lms291(pose [-0.88 0.0 0.2 180])
   #Next two lines make the stage simulation return the true global position
   #TODO: Remove in the future when we have other sensors simulated...
   #      But for now, we can use assume true localization in order to get 

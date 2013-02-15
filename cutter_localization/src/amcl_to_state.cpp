@@ -48,7 +48,7 @@
 class AmclToState
 {
 public:
-  AmclToState() : tf_(),  target_frame_("snowmap")
+  AmclToState() : tf_(),  target_frame_("map")
   {
     // TODO: Make the target frame and the message configurable!
     odom_sub_.subscribe(nh_, "odom", 10);

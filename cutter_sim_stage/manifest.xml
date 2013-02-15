@@ -12,6 +12,7 @@
   <depend package="roscpp"/>
   <depend package="tf"/>
   <depend package="cutter_msgs"/>
+  <depend package="gps_common"/>
 
 </package>
 
