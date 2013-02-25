@@ -11,8 +11,10 @@ define sick_lms291 ranger
 (
   sensor(
     range_max 800
-    fov 180
-    samples 181
+    #fov 180
+    #samples 181
+    fov 270
+    samples 271
   )
   size [0.15 0.15 0.2]
 )

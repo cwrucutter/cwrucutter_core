@@ -51,10 +51,10 @@ class LandmarkServer:
     print "\nCreating Map:"
     pts_lm = self.pts_landmarks
     
-    width = 10  #meters
-    height = 20 #meters
+    width = 20  #meters
+    height = 30 #meters
     res = 0.1   #meters
-    origin = [-3,-4]
+    origin = [-8,-9]
     tht = 0
     rot = tf.transformations.quaternion_from_euler(0, 0, tht)
    

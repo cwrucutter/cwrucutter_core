@@ -369,9 +369,6 @@ double AMCLLaser::LikelihoodFieldModel(AMCLLaserData *data, pf_sample_set_t* set
         assert(pz <= 1.0);
         assert(pz >= 0.0);
       }
-      // here we have an ad-hoc weighting scheme for combining beam probs
-      // works well, though...
-      //p *= pz;
       p += pz*pz*pz;
       if (z < self->map->max_occ_dist)
       {
