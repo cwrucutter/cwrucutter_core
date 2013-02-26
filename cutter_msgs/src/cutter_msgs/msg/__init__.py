@@ -4,6 +4,7 @@ from ._SlipStatus import *
 from ._VelCmd import *
 from ._Switches import *
 from ._Beacon import *
+from ._Survey import *
 from ._StatusUpdate import *
 from ._StateEvaluation import *
 from ._EncMsg import *

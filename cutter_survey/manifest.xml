@@ -10,6 +10,7 @@
   <url>http://ros.org/wiki/cutter_survey</url>
   <depend package="rospy"/>
   <depend package="tf"/>
+  <depend package="cutter_msgs"/>
 
 </package>
 
