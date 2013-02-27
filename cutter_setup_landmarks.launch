@@ -1,0 +1,9 @@
+<!-- This file starts the landmark map server -->
+<launch>
+  <!-- Start the map service-->
+  <!-- Make sure to be publishing the landmark points to cwru/survey_landmarks -->
+  <node pkg="cutter_amcl" type="landmark_map_service_subscriber.py" name="landmark_map_service">
+    <param name="topic_in" value="cwru/survey_landmarks" />
+  </node>
+
+</launch>

@@ -5,9 +5,15 @@
     <!-- Start the Stage simulator -->
     <node pkg="stage" type="stageros" name="stageros" args="$(find cutter_sim_stage)/worlds/cutter_lidar_1.world" respawn="false" />
 
-    <!-- Start the map server -->
-    <node pkg="cutter_amcl" type="landmark_map_service.py" name = "mapsrv"/>
+    <!-- Start the surveyed points publisher-->
+    <node pkg="cutter_survey" type="publish_survey_from_txtfile.py" name = "landmark_survey_publisher">
+      <param name="filename" value="Simulation_Lidar1_Landmarks.txt"/>
+      <param name="topic_out" value="cwru/survey_landmarks"/>
+    </node>
 
     <!-- Simulate the GPS message -->
     <include file="$(find cutter_sim_stage)/launch/sim_gps.launch"/>
+
+    <!-- Publish the static transform from /map to /map_gps -->
+    <node pkg="tf" type="static_transform_publisher" name="gpsmap_tf" args="0 0 0 0 0 0 map map_gps 100" />
 </launch>

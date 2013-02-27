@@ -45,7 +45,7 @@ class SnowmapTransformer:
     def __init__(self):
         # Start the node
         rospy.init_node('recorded_survey_publisher')
-        surveyfile = rospy.get_param('~file_survey','survey.txt')
+        surveyfile = rospy.get_param('~filename','survey.txt')
         topic_out = rospy.get_param('~topic_out','/cwru/survey')
         self.file_survey = roslib.packages.get_pkg_dir('cutter_survey')+'/survey/'+surveyfile
         
