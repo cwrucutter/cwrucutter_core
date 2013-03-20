@@ -94,6 +94,7 @@ class CutterOdometry
 
     bool first_call_;
     bool imu_enabled_;
+    bool imu_new_;
 };
 
 CutterOdometry::CutterOdometry():
@@ -145,10 +146,11 @@ bool CutterOdometry::sendOdometry()
   else
   {
     // New x,y,theta
-    if (imu_enabled_)
+    if (imu_enabled_ && imu_new_)
       w = .1*diff/track_ + .9*imu_angular_rate_.z;
     else
       w = diff/track_;
+    imu_new_ = false;
     //xnew = x_ + track_ * sum/(2*diff) * (sin(diff*dt_/track_+tht_) - sin(tht_));
     //ynew = y_ - track_ * sum/(2*diff) * (cos(diff*dt_/track_+tht_) - cos(tht_));
     xnew = x_ + sum/(2*w) * (sin(w*dt_+tht_) - sin(tht_));
@@ -236,6 +238,7 @@ void CutterOdometry::imuCallback(const sensor_msgs::Imu::ConstPtr& imu)
 {
   imu_angular_rate_ = imu->angular_velocity;
   ROS_INFO("Received imu values. Yaw Rate: %f", imu_angular_rate_.z);
+  imu_new_ = true;
   return;
 }
 
