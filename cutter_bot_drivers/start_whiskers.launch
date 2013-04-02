@@ -1,6 +1,6 @@
 <launch>
    
    <!-- Serial Node to Arduino Whiskers -->
-   <node pkg="rosserial_python" type="serial_node.py" name="SIRLWhiskers" args="/dev/ttyUSB4" output="screen"/>
+   <node pkg="rosserial_python" type="serial_node.py" name="SIRLWhiskers" args="/dev/ttyUSB0" output="screen"/>
    
 </launch>

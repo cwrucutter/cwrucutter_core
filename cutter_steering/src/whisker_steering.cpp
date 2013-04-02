@@ -146,7 +146,9 @@ void CutterWhiskerSteering::steer()
   w = profile(w, last_cmd_vel_.angular.z, w_max_, w_a_max_);
   v = profile(v, last_cmd_vel_.linear.x , v_max_, v_a_max_);
 
+  ROS_INFO("RightWhisker: %f", whisker_right_);
   ROS_INFO("profiled v: %f", v);
+  ROS_INFO("profiled w: %f", w);
 
   publishVW(v,w);
 
@@ -182,15 +184,15 @@ int main(int argc, char** argv)
 
   ros::Rate loop_rate(Hz);
 
-/*
+
   if (steering.lookupParams())
   {
-    ROS_DEBUG("Parameters found");
+    ROS_INFO("Parameters found");
   }
   else
   {
     ROS_WARN("Parameters not found");
-  }*/
+  }
 
   while (ros::ok())
   {

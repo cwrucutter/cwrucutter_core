@@ -1,0 +1,11 @@
+<launch>
+  <node pkg="cutter_steering" type="whisker_steering" name="whisker_steering" output="screen">
+    <param name="PID_P" value="5" type="double"/>
+    <param name="PID_D" value="1" type="double"/>
+    <param name="PID_Set" value="800" type="double"/>
+    <param name="v_max" value=".2" type="double"/>
+    <param name="v_a_max" value=".5" type="double"/>
+    <param name="w_max" value=".3" type="double"/>
+    <param name="w_a_max" value="1" type="double"/>
+  </node>
+</launch>
