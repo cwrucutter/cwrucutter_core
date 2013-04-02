@@ -270,7 +270,7 @@ AmclNode::AmclNode() :
 {
   boost::recursive_mutex::scoped_lock l(configuration_mutex_);
 
-  debug_ = true;
+  debug_ = false;
 
   // Grab params off the param server
   private_nh_.param("use_map_topic", use_map_topic_, false);
