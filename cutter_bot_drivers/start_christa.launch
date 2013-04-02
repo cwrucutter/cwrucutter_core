@@ -1,7 +1,7 @@
 <launch>
   <!-- Launch the Novatel GPS Driver node --> 
   <node pkg="christa_imu_driver" type="christa_imu_driver.py" name="driver_christa" output="screen">
-    <param name="port" value="/dev/ttyUSB2" type="string"/>
+    <param name="port" value="/dev/ttyUSB3" type="string"/>
     <param name="baud" value="115200" type="int"/>
   </node>
 

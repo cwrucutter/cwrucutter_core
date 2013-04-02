@@ -1,7 +1,7 @@
 <launch>
   <!-- Launch the Novatel GPS Driver node --> 
   <node pkg="novatel_gps_driver" type="novatel_gps_driver.py" name="driver_novatel" output="screen">
-    <param name="port" value="/dev/ttyUSB0" type="string"/>
+    <param name="port" value="/dev/ttyUSB1" type="string"/>
     <param name="baud" value="57600" type="int"/>
   </node>
 
