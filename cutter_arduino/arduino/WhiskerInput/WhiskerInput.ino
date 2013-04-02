@@ -23,7 +23,7 @@ cutter_arduino::Potentiometer pot_msg;
 ros::Publisher pub_whiskers( "cwru/whiskers", &pot_msg);
 
 const int analog_pin_0 = 0;
-const int analog_pin_1 = 0;
+const int analog_pin_1 = 1;
 unsigned long range_timer;
 unsigned long new_time;
 
