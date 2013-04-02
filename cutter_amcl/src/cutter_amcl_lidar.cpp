@@ -53,6 +53,9 @@
 #include "tf/tf.h"
 #include "message_filters/subscriber.h"
 
+#include <fstream>
+#include <iostream>
+
 // Dynamic_reconfigure
 //#include "dynamic_reconfigure/server.h"
 //#include "amcl/AMCLConfig.h"
@@ -126,6 +129,7 @@ class AmclNode
                                     std_srvs::Empty::Response& res);
     void laserReceived(const sensor_msgs::LaserScanConstPtr& laser_scan);
     void initialPoseReceived(const geometry_msgs::PoseWithCovarianceStampedConstPtr& msg);
+    void gpsReceived(const geometry_msgs::PoseStampedConstPtr& msg);
     void mapReceived(const nav_msgs::OccupancyGridConstPtr& msg);
 
     void handleMapMessage(const nav_msgs::OccupancyGrid& msg);
@@ -149,6 +153,7 @@ class AmclNode
     ros::Duration save_pose_period;
 
     geometry_msgs::PoseWithCovarianceStamped last_published_pose;
+    geometry_msgs::PoseStamped gps_;
 
     map_t* map_;
     char* mapdata;
@@ -158,6 +163,7 @@ class AmclNode
     message_filters::Subscriber<sensor_msgs::LaserScan>* laser_scan_sub_;
     tf::MessageFilter<sensor_msgs::LaserScan>* laser_scan_filter_;
     ros::Subscriber initial_pose_sub_;
+    ros::Subscriber gps_sub_;
     std::vector< AMCLLaser* > lasers_;
     std::vector< bool > lasers_update_;
     std::map< std::string, int > frame_to_laser_;
@@ -222,6 +228,13 @@ class AmclNode
     ros::Time last_laser_received_ts_;
     ros::Duration laser_check_interval_;
     void checkLaserReceived(const ros::TimerEvent& event);
+    
+    void setStartTime(double t);
+    std::ofstream debug_file_;
+    double time_new_, time_old_, time_start_;
+    bool time_init_;
+    bool debug_;
+    
 };
 
 std::vector<std::pair<int,int> > AmclNode::free_space_indices;
@@ -256,6 +269,8 @@ AmclNode::AmclNode() :
         first_reconfigure_call_(true)
 {
   boost::recursive_mutex::scoped_lock l(configuration_mutex_);
+
+  debug_ = true;
 
   // Grab params off the param server
   private_nh_.param("use_map_topic", use_map_topic_, false);
@@ -382,6 +397,7 @@ AmclNode::AmclNode() :
   laser_scan_filter_->registerCallback(boost::bind(&AmclNode::laserReceived,
                                                    this, _1));
   initial_pose_sub_ = nh_.subscribe("initialpose", 2, &AmclNode::initialPoseReceived, this);
+  gps_sub_ = nh_.subscribe("gps_pose",2, &AmclNode::gpsReceived, this);
 
   if(use_map_topic_) {
     map_sub_ = nh_.subscribe("map", 1, &AmclNode::mapReceived, this);
@@ -398,6 +414,26 @@ AmclNode::AmclNode() :
   laser_check_interval_ = ros::Duration(15.0);
   check_laser_timer_ = nh_.createTimer(laser_check_interval_, 
                                        boost::bind(&AmclNode::checkLaserReceived, this, _1));
+               
+  time_new_ = ros::Time::now().toSec();
+  time_old_ = time_new_;
+  time_start_ = 0.0;
+  time_init_ = false;
+                          
+  if (debug_){
+    // open file for debugging
+    debug_file_.open("/tmp/laser_file.txt");
+  }
+}
+void AmclNode::setStartTime(double t)
+{
+  if (time_init_)
+    return;
+  else
+  {
+    time_start_ = t;
+    time_init_ = true;
+  }
 }
 /*
 void AmclNode::reconfigureCB(AMCLConfig &config, uint32_t level)
@@ -539,6 +575,12 @@ AmclNode::checkLaserReceived(const ros::TimerEvent& event)
              d.toSec(),
              ros::names::resolve(scan_topic_).c_str());
   }
+}
+
+void AmclNode::gpsReceived(const geometry_msgs::PoseStampedConstPtr& msg)
+{
+  setStartTime(msg->header.stamp.toSec());
+  gps_ = *msg;
 }
 
 void
@@ -789,6 +831,9 @@ AmclNode::globalLocalizationCallback(std_srvs::Empty::Request& req,
 void
 AmclNode::laserReceived(const sensor_msgs::LaserScanConstPtr& laser_scan)
 {
+  time_new_ = laser_scan->header.stamp.toSec();
+  setStartTime(time_new_);
+  
   last_laser_received_ts_ = ros::Time::now();
   if( map_ == NULL ) {
     return;
@@ -1170,6 +1215,16 @@ AmclNode::laserReceived(const sensor_msgs::LaserScanConstPtr& laser_scan)
                                       last_published_pose.pose.covariance[6*5+5]);
       save_pose_last_time = now;
     }
+  }
+  
+  if (debug_)
+  {
+    debug_file_ << time_new_-time_start_ << "," 
+                << last_published_pose.pose.pose.position.x << ","  
+                << last_published_pose.pose.pose.position.y << ","
+                << tf::getYaw(last_published_pose.pose.pose.orientation) << ","
+                << gps_.pose.position.x << "," 
+                << gps_.pose.position.y << std::endl;
   }
 
 }

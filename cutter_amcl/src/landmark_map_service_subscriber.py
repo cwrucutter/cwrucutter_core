@@ -60,8 +60,8 @@ class LandmarkServer:
     pts_lm = self.pts_landmarks
     size = len(pts_lm)
     
-    width = 20.0  #meters
-    height = 20.0 #meters
+    width = 30.0  #meters
+    height = 30.0 #meters
     res = 0.1   #meters
     origin = [0,0]
     
