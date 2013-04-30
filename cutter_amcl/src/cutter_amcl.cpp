@@ -60,6 +60,9 @@
 #include "dynamic_reconfigure/server.h"
 #include "cutter_amcl/amclConfig.h"
 
+#include <fstream>
+#include <iostream>
+
 #define NEW_UNIFORM_SAMPLING 1
 
 using namespace amcl;
@@ -233,6 +236,12 @@ class AmclNode
     ros::Time last_gps_received_ts_;
     ros::Duration gps_check_interval_;
     void checkGpsReceived(const ros::TimerEvent& event);
+    
+    void setStartTime(double t);
+    std::ofstream debug_file_;
+    double time_new_, time_old_, time_start_;
+    bool time_init_;
+    bool debug_;
 };
 
 std::vector<std::pair<int,int> > AmclNode::free_space_indices;
@@ -269,6 +278,8 @@ AmclNode::AmclNode() :
   printf("Entering AmclNode\n");
   printf("%i \n", __LINE__);
   boost::recursive_mutex::scoped_lock l(configuration_mutex_);
+
+  debug_ = false;
 
   // Grab params off the param server
   private_nh_.param("use_map_topic", use_map_topic_, false);
@@ -468,8 +479,28 @@ AmclNode::AmclNode() :
   check_gps_timer_ = nh_.createTimer(gps_check_interval_, 
                                        boost::bind(&AmclNode::checkGpsReceived, this, _1));
   printf("Leaving AmclNode\n");
+       
+  time_new_ = ros::Time::now().toSec();
+  time_old_ = time_new_;
+  time_start_ = 0.0;
+  time_init_ = false;
+      
+  if (debug_){
+    // open file for debugging
+    debug_file_.open("/tmp/amcl_file.txt");
+  }
 }
 
+void AmclNode::setStartTime(double t)
+{
+  if (time_init_)
+    return;
+  else
+  {
+    time_start_ = t;
+    time_init_ = true;
+  }
+}
 void AmclNode::reconfigureCB(cutter_amcl::amclConfig &config, uint32_t level)
 {
   printf("Entering reconfigureCB\n");
@@ -813,8 +844,10 @@ AmclNode::uniformPoseGenerator(void* arg)
   //min_range = 0.0;
   //max_range = 0.3;
   // TODO: Set the uniform pose generator from the base_link->base_gps transform!!
-  min_range = 0.4;
-  max_range = 0.6;
+  //min_range = 0.4;
+  //max_range = 0.6;
+  min_range = 0.0;
+  max_range = 0.2;
   
   pf_vector_t p;
   r = drand48() * (max_range-min_range) + min_range;
@@ -870,6 +903,7 @@ void
 AmclNode::gpsReceived(const geometry_msgs::PoseStampedConstPtr& gps)
 {
   double startTime = ros::Time::now().toSec();
+  setStartTime(gps->header.stamp.toSec());
   
   // INSERTED FROM HERE... 
   geometry_msgs::PoseStamped gps_tf;
@@ -1279,7 +1313,16 @@ AmclNode::gpsReceived(const geometry_msgs::PoseStampedConstPtr& gps)
   double endTime = ros::Time::now().toSec();
   ROS_INFO("Loop Duration: %f", endTime-startTime);
   printf("Leaving gpsReceived\n");
-
+  
+  if (debug_)
+  {
+    debug_file_ << time_new_-time_start_ << "," 
+                << last_published_pose.pose.pose.position.x << ","  
+                << last_published_pose.pose.pose.position.y << ","
+                << tf::getYaw(last_published_pose.pose.pose.orientation) << ","
+                << gps->pose.position.x << "," 
+                << gps->pose.position.y << std::endl;
+  }
 }
 
 double
