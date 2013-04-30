@@ -1,0 +1,13 @@
+int16 STATUS_NO_FIX=-1
+int16 STATUS_FIX=0
+int16 STATUS_SBAS_FIX=1
+int16 STATUS_DGPS_FIX=18
+int16 STATUS_WAAS_FIX=33
+float64 latitude
+float64 longitude
+float64 altitude
+float64 ground_course
+float64 ground_speed
+uint16 satellites_used
+uint16 satellites_visible
+int16 status
