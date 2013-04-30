@@ -90,9 +90,9 @@ class ArduimuParser:
         rospy.loginfo(gps_msg)
 
         # Populate the GPS message
-        gpsMsg.latitude  = lat/10000000;
-        gpsMsg.longitude = lon/10000000;
-        gpsMsg.altitude  = alt/100;
+        gpsMsg.latitude  = lat/10000000.0;
+        gpsMsg.longitude = lon/10000000.0;
+        gpsMsg.altitude  = alt/100.0;
         #TODO: Replace the covariance
         gpsMsg.position_covariance_type = NavSatFix.COVARIANCE_TYPE_UNKNOWN
         
