@@ -14,6 +14,7 @@
   <depend package="rosserial_python"/>
   <depend package="novatel_gps_driver"/>
   <depend package="tf"/>
+  <depend package="gps_common"/>
 </package>
 
 
