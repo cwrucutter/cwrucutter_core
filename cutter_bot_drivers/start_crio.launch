@@ -7,6 +7,6 @@
    <node pkg="cutter_bot_drivers" type="crio_status_translate.py" name="translate_status" />
 
    <!-- Serial Node to CRIO -->
-   <node pkg="rosserial_python" type="serial_node.py" name="SIRL" args="/dev/ttyUSB2" output="screen"/>
+   <node pkg="rosserial_python" type="serial_node.py" name="SIRL" args="/dev/ttyUSB1" output="screen"/>
    
 </launch>

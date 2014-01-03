@@ -1,7 +1,7 @@
 <launch>
   <!-- Launch the Novatel GPS Driver node --> 
   <node pkg="sicktoolbox_wrapper" type="sicklms" name="driver_lidar" output="screen">
-    <param name="port" value="/dev/ttyUSB4" type="string"/>
+    <param name="port" value="/dev/ttyUSB3" type="string"/>
     <param name="baud" value="38400" type="int"/>
   </node>
 
